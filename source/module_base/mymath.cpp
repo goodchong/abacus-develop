@@ -1,6 +1,9 @@
 #include "mymath.h"
 
 #include "timer.h"
+#include <algorithm> // For std::sort
+#include <vector>
+#include <utility> // For std::pair
 
 namespace ModuleBase
 {
@@ -36,32 +39,32 @@ void heapAjust(double *r, int *ind, int s, int m)
 void heapsort(const int n, double *r, int *ind)
 {
     ModuleBase::timer::tick("mymath", "heapsort");
-    int i = 0, ic = 0;
-    double rc = 0.0;
-
     if (ind[0] == 0)
     {
-        for (i = 0; i < n; i++)
+        for (int i = 0; i < n; i++)
         {
             ind[i] = i;
         }
     }
 
-    for (i = n / 2; i >= 0; i--)
+    std::vector<std::pair<double, int>> pairs(n);
+    for (int i = 0; i < n; ++i)
     {
-        heapAjust(r, ind, i, n - 1);
+        pairs[i] = {r[i], ind[i]};
     }
 
-    for (i = n - 1; i > 0; i--)
+    // 使用 std::sort 对 pairs 按照 r 的值进行排序
+    std::sort(pairs.begin(), pairs.end(), [](const std::pair<double, int>& a, const std::pair<double, int>& b) {
+        return a.first < b.first;
+    });
+
+    // 将排序结果写回 r 和 ind 数组
+    for (int i = 0; i < n; ++i)
     {
-        rc = r[0];
-        r[0] = r[i];
-        r[i] = rc;
-        ic = ind[0];
-        ind[0] = ind[i];
-        ind[i] = ic;
-        heapAjust(r, ind, 0, i - 1);
+        r[i] = pairs[i].first;
+        ind[i] = pairs[i].second;
     }
+
     ModuleBase::timer::tick("mymath", "heapsort");
     return;
 }
