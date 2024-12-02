@@ -17,11 +17,13 @@ void heapAjust(double *r, int *ind, int s, int m)
 
     for (j = 2 * s; j <= m; j *= 2)
     {
-        if (j < m && (r[j] < r[j + 1]))
+        if (j < m && (r[j] < r[j + 1])) {
             j++;
+}
 
-        if (!(rc < r[j]))
+        if (!(rc < r[j])) {
             break;
+}
 
         r[s] = r[j];
 
@@ -97,12 +99,14 @@ void hpsort(int n, double *ra, int *ind)
 
     if (ind[0] == 0)
     {
-        for (i = 1; i <= n; i++)
+        for (i = 1; i <= n; i++) {
             ind[i - 1] = i;
+}
     }
 
-    if (n < 2)
+    if (n < 2) {
         return; // nothing to order
+}
 
     k = n / 2;
 
@@ -146,8 +150,9 @@ void hpsort(int n, double *ra, int *ind)
                 }
                 else if (ra[j] == ra[j + 1])
                 {
-                    if (ind[j] < ind[j + 1])
+                    if (ind[j] < ind[j + 1]) {
                         j = j + 1;
+}
                 }
             }
 
@@ -167,11 +172,13 @@ void hpsort(int n, double *ra, int *ind)
                     i = j;
                     j = j + j + 1;
                 }
-                else
+                else {
                     j = ir + 1; // set j to terminate do-while loop
+}
             }
-            else // this is the right place for rra
+            else { // this is the right place for rra
                 j = ir + 1; // set j to terminate do-while loop
+}
         }
 
         ra[i] = rra;
