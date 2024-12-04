@@ -81,7 +81,7 @@ TEST_F(SltkGridTest, Init)
     ucell->check_dtau();
     test_atom_in = 2;
     PARAM.input.test_grid = 1;
-    Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in);
+    Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     Grid LatGrid(PARAM.input.test_grid);
     LatGrid.init(ofs, *ucell, Atom_inp);
     EXPECT_TRUE(LatGrid.init_cell_flag);
@@ -102,7 +102,7 @@ TEST_F(SltkGridTest, InitSmall)
     test_atom_in = 2;
     PARAM.input.test_grid = 1;
     radius = 0.5;
-    Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in);
+    Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     Grid LatGrid(PARAM.input.test_grid);
     LatGrid.setMemberVariables(ofs, Atom_inp);
     EXPECT_EQ(LatGrid.pbc, Atom_inp.getBoundary());

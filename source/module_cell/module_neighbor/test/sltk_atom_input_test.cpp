@@ -103,7 +103,7 @@ TEST_F(SltkAtomInputTest, Constructor)
     ucell->check_dtau();
     test_atom_in = 2;
     PARAM.input.test_grid = 1;
-    Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in);
+    Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     ofs.close();
     ifs.open("test.out");
     std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
@@ -126,7 +126,7 @@ TEST_F(SltkAtomInputTest, Getters)
     ofs.open("test.out");
     ucell->check_dtau();
     test_atom_in = 2;
-    Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in);
+    Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     EXPECT_TRUE(Atom_inp.getExpandFlag());
     EXPECT_EQ(Atom_inp.getBoundary(), 1);
     EXPECT_NEAR(Atom_inp.getRadius(), 2.55196, 1e-5);
@@ -153,7 +153,7 @@ TEST_F(SltkAtomInputDeathTest, ConstructorWarning1)
     test_atom_in = 1;
     radius = -1;
     testing::internal::CaptureStdout();
-    EXPECT_EXIT(Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in),
+    EXPECT_EXIT(Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in),
                 ::testing::ExitedWithCode(1),
                 "");
     output = testing::internal::GetCapturedStdout();
@@ -219,7 +219,7 @@ TEST_F(SltkAtomInputTest, ConstructorNoExpand)
     // this is a bug if radius is too small
     // because the expand_flag will be false!
     radius = 0;
-    Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in);
+    Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     EXPECT_FALSE(Atom_inp.getExpandFlag());
     ofs.close();
     ifs.open("test.out");
@@ -244,7 +244,7 @@ TEST_F(SltkAtomInputTest, ConstructorSmallSearchRadius)
     test_atom_in = 1;
     PARAM.input.test_grid = 1;
     radius = 0.5;
-    Atom_input Atom_inp(ofs, *ucell, ucell->nat, ucell->ntype, pbc, radius, test_atom_in);
+    Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     EXPECT_TRUE(Atom_inp.getExpandFlag());
     ofs.close();
     ifs.open("test.out");

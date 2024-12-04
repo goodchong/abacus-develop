@@ -12,8 +12,6 @@ class Atom_input
     //==========================================================
     Atom_input(std::ofstream& ofs_in,
                const UnitCell& ucell,
-               const int amount = 0,       // number of atoms
-               const int ntype = 0,        // number of atom_types
                const bool boundary = true, // 1 : periodic ocndition
                const double radius_in = 0, // searching radius
                const int& test_atom_in = 0 // caoyu reconst 2021-05-24

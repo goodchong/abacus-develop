@@ -34,10 +34,13 @@ Grid::~Grid()
 void Grid::init(std::ofstream& ofs_in, const UnitCell& ucell, const Atom_input& input)
 {
     ModuleBase::TITLE("SLTK_Grid", "init");
+    ModuleBase::timer::tick("atom_arrange", "grid_d.init");
 
     this->setMemberVariables(ofs_in, input);
     this->Build_Hash_Table(ucell, input);
     this->setBoundaryAdjacent(ofs_in, input);
+    ModuleBase::timer::tick("atom_arrange", "grid_d.init");
+
 }
 
 //==========================================================
