@@ -9,8 +9,6 @@
 //==========================================================
 Atom_input::Atom_input(std::ofstream& ofs_in,
                        const UnitCell& ucell,
-                       const int amount,
-                       const int ntype,
                        const bool boundary_in,
                        const double radius_in,
                        const int& test_atom_in)
@@ -21,8 +19,6 @@ Atom_input::Atom_input(std::ofstream& ofs_in,
 
     if (test_atom_input)
     {
-        ModuleBase::GlobalFunc::OUT(ofs_in, "ntype", ntype);
-        ModuleBase::GlobalFunc::OUT(ofs_in, "Amount(atom number)", amount);
         ModuleBase::GlobalFunc::OUT(ofs_in, "Periodic_boundary", periodic_boundary);
         ModuleBase::GlobalFunc::OUT(ofs_in, "Searching radius(lat0)", radius);
     }
@@ -40,7 +36,7 @@ Atom_input::Atom_input(std::ofstream& ofs_in,
     this->z_max = ucell.atoms[0].tau[0].z;
 
     // calculate min & max value
-    for (int i = 0; i < ntype; i++)
+    for (int i = 0; i < ucell.ntype; i++)
     {
         for (int j = 0; j < ucell.atoms[i].na; j++)
         {
