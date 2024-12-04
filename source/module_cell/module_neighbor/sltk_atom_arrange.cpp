@@ -70,7 +70,10 @@ void atom_arrange::search(const bool pbc_flag,
     ModuleBase::TITLE("atom_arrange", "search");
     ModuleBase::timer::tick("atom_arrange", "search");
 
-    assert(search_radius_bohr > 0.0);
+    if (search_radius_bohr < 0.0)
+    {
+        ModuleBase::WARNING_QUIT("atom_arrange::search", " search_radius_bohr < 0,forbidden");
+    }
 
     ModuleBase::GlobalFunc::OUT(ofs_in, "searching radius is (Bohr))", search_radius_bohr);
     ModuleBase::GlobalFunc::OUT(ofs_in, "searching radius unit is (Bohr))", ucell.lat0);
@@ -82,7 +85,7 @@ void atom_arrange::search(const bool pbc_flag,
 
     const double radius_lat0unit = search_radius_bohr / ucell.lat0;
 
-	
+
     Atom_input at(ofs_in, ucell, pbc_flag, radius_lat0unit, test_atom_in);
 
     grid_d.init(ofs_in, ucell, at);
@@ -138,5 +141,5 @@ void atom_arrange::delete_vector(std::ofstream& ofs_in,
 
     grid_d.delete_vector(at2.getGrid_layerX_minus(), at2.getGrid_layerY_minus(), at2.getGrid_layerZ_minus());
 
-    grid_d.delete_Cell();
+    grid_d.clear_atoms();
 }
