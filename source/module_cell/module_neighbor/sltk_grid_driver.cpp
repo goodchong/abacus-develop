@@ -22,9 +22,7 @@ Grid_Driver::~Grid_Driver()
 {
 }
 
-void Grid_Driver::Find_atom(const UnitCell& ucell,
-                            const ModuleBase::Vector3<double>& cartesian_pos,
-                            const int& ntype,
+void Grid_Driver::Find_atom(const int& ntype,
                             const int& nnumber,
                             AdjacentAtomInfo* adjs)
 {

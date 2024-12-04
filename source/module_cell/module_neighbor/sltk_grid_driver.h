@@ -63,11 +63,20 @@ class Grid_Driver : public Grid
     // 2. And store results into parameter adjs when adjs is
     //     NOT NULL
     //==========================================================
+    void Find_atom(const int& ntype,
+                   const int& nnumber,
+                   AdjacentAtomInfo* adjs = nullptr);
+
+    // cartesian_posi and ucell is deprecated 20241204 zhanghaochong
+    // this interface is deprecated, please use Find_atom above
     void Find_atom(const UnitCell& ucell,
                    const ModuleBase::Vector3<double>& cartesian_posi,
                    const int& ntype,
                    const int& nnumber,
-                   AdjacentAtomInfo* adjs = nullptr);
+                   AdjacentAtomInfo* adjs = nullptr)
+    {
+        this->Find_atom(ntype, nnumber, adjs);
+    }
 
     //==========================================================
     // EXPLAIN : The adjacent information for the input
