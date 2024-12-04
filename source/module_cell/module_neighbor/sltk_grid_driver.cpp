@@ -22,9 +22,10 @@ Grid_Driver::~Grid_Driver()
 {
 }
 
-void Grid_Driver::Find_atom(const int& ntype,
-                            const int& nnumber,
-                            AdjacentAtomInfo* adjs) const
+void Grid_Driver::Find_atom(const UnitCell& ucell,
+                            const int ntype,
+                            const int nnumber,
+                            AdjacentAtomInfo* adjs)
 {
     ModuleBase::timer::tick("Grid_Driver", "Find_atom");
     //	std::cout << "lenght in Find atom = " << atomlink[offset].fatom.getAdjacentSet()->getLength() << std::endl;
@@ -42,8 +43,10 @@ void Grid_Driver::Find_atom(const int& ntype,
         local_adjs->adjacent_tau.push_back(ModuleBase::Vector3<double>(atom->x, atom->y, atom->z));
         local_adjs->adj_num++;
     }
-    local_adjs->adj_num--;
-
+	local_adjs->ntype.push_back(ntype);
+	local_adjs->natom.push_back(nnumber);
+	local_adjs->box.push_back(ModuleBase::Vector3<int>(0, 0, 0));
+	local_adjs->adjacent_tau.push_back(ModuleBase::Vector3<double>(ucell.atoms[ntype].tau[nnumber].x, ucell.atoms[ntype].tau[nnumber].y, ucell.atoms[ntype].tau[nnumber].z));
     ModuleBase::timer::tick("Grid_Driver", "Find_atom");
     return;
 }
