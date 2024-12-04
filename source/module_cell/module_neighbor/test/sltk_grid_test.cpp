@@ -83,9 +83,9 @@ TEST_F(SltkGridTest, Init)
     PARAM.input.test_grid = 1;
     Grid LatGrid(PARAM.input.test_grid);
     LatGrid.init(ofs, *ucell, radius, pbc);
-    EXPECT_EQ(LatGrid.getGlayerX(), 11);
-    EXPECT_EQ(LatGrid.getGlayerY(), 11);
-    EXPECT_EQ(LatGrid.getGlayerZ(), 11);
+    EXPECT_EQ(LatGrid.getGlayerX(), 6);
+    EXPECT_EQ(LatGrid.getGlayerY(), 6);
+    EXPECT_EQ(LatGrid.getGlayerZ(), 6);
     EXPECT_EQ(LatGrid.getGlayerX_minus(), 5);
     EXPECT_EQ(LatGrid.getGlayerY_minus(), 5);
     EXPECT_EQ(LatGrid.getGlayerZ_minus(), 5);

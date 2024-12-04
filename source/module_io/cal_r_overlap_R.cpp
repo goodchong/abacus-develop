@@ -250,9 +250,9 @@ void cal_r_overlap_R::out_rR(const UnitCell& ucell, const int& istep)
     int R_minY = int(-GlobalC::GridD.getGlayerY_minus());
     int R_minZ = int(-GlobalC::GridD.getGlayerZ_minus());
 
-    int R_x = GlobalC::GridD.getGlayerX();
-    int R_y = GlobalC::GridD.getGlayerY();
-    int R_z = GlobalC::GridD.getGlayerZ();
+    int R_x = GlobalC::GridD.getGlayerX() + GlobalC::GridD.getGlayerX_minus();
+    int R_y = GlobalC::GridD.getGlayerY() + GlobalC::GridD.getGlayerY_minus();
+    int R_z = GlobalC::GridD.getGlayerZ() + GlobalC::GridD.getGlayerZ_minus();
 
     std::set<Abfs::Vector3_Order<int>> all_R_coor;
     for (int ix = 0; ix < R_x; ix++)

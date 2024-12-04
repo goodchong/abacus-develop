@@ -72,9 +72,9 @@ void sparse_format::set_R_range(std::set<Abfs::Vector3_Order<int>>& all_R_coor, 
     int RminY = int(-GlobalC::GridD.getGlayerY_minus());
     int RminZ = int(-GlobalC::GridD.getGlayerZ_minus());
 
-    int Rx = GlobalC::GridD.getGlayerX();
-    int Ry = GlobalC::GridD.getGlayerY();
-    int Rz = GlobalC::GridD.getGlayerZ();
+    int Rx = GlobalC::GridD.getGlayerX() + GlobalC::GridD.getGlayerX_minus();
+    int Ry = GlobalC::GridD.getGlayerY() + GlobalC::GridD.getGlayerY_minus();
+    int Rz = GlobalC::GridD.getGlayerZ() + GlobalC::GridD.getGlayerZ_minus();
 
     for (int ix = 0; ix < Rx; ix++)
     {
