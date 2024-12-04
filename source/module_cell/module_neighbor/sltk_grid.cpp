@@ -4,7 +4,6 @@
 #include "module_base/global_variable.h"
 #include "module_base/memory.h"
 #include "module_base/timer.h"
-#include "sltk_atom_input.h"
 
 Grid::Grid(const int& test_grid_in) : test_grid(test_grid_in)
 {
@@ -15,32 +14,138 @@ Grid::~Grid()
     this->clear_atoms();
 }
 
-void Grid::init(std::ofstream& ofs_in, const UnitCell& ucell, const Atom_input& input)
+void Grid::init(std::ofstream& ofs_in, const UnitCell& ucell, const double radius_in, const bool boundary)
 {
     ModuleBase::TITLE("SLTK_Grid", "init");
     ModuleBase::timer::tick("atom_arrange", "grid_d.init");
+    this->pbc = boundary;
+    this->sradius2 = radius_in * radius_in;
+    this->sradius = radius_in;
 
-    this->setMemberVariables(ofs_in, ucell, input);
+    ModuleBase::GlobalFunc::OUT(ofs_in, "PeriodicBoundary", this->pbc);
+    ModuleBase::GlobalFunc::OUT(ofs_in, "Radius(unit:lat0)", sradius);
+
+    this->Check_Expand_Condition(ucell);
+    this->setMemberVariables(ofs_in, ucell);
     this->Construct_Adjacent(ucell);
     ModuleBase::timer::tick("atom_arrange", "grid_d.init");
 }
+
+void Grid::Check_Expand_Condition(const UnitCell& ucell)
+{
+    //	ModuleBase::TITLE(GlobalV::ofs_running, "Atom_input", "Check_Expand_Condition");
+
+    if (!pbc)
+    {
+        return;
+    }
+
+    /*2016-07-19, LiuXh
+        // the unit of extent_1DX,Y,Z is lat0.
+        // means still how far can be included now.
+        double extent_1DX = glayerX * clength0 - dmaxX;
+        while (radius > extent_1DX)
+        {
+            glayerX++;
+            extent_1DX = glayerX * clength0 - dmaxX;
+        }
+        double extent_1DY = glayerY * clength1 - dmaxY;
+        while (radius > extent_1DY)
+        {
+            glayerY++;
+            extent_1DY = glayerY * clength1 - dmaxY;
+        }
+        double extent_1DZ = glayerZ * clength2 - dmaxZ;
+        while (radius > extent_1DZ)
+        {
+            glayerZ++;
+            extent_1DZ = glayerZ * clength2 - dmaxZ;
+        }
+
+        // in case the cell is not retangle.
+        // mohan added 2009-10-23
+        // if this is not added, it's a serious bug.
+        glayerX++;
+        glayerY++;
+        glayerZ++;
+        if(test_atom_input)
+        {
+            GlobalV::ofs_running << " Extend distance from the (maxX,maxY,maxZ) direct position in this unitcell: " <<
+    std::endl;
+        }
+
+        if(test_atom_input)OUT(GlobalV::ofs_running,"ExtentDim+",extent_1DX,extent_1DY,extent_1DZ);
+
+        double extent_1DX_minus = glayerX_minus * clength0 + dminX;
+        while (radius > extent_1DX_minus)
+        {
+            glayerX_minus++;
+            extent_1DX_minus = glayerX_minus * clength0 + dminX;
+        }
+        double extent_1DY_minus = glayerY_minus * clength1 + dminY;
+        while (radius > extent_1DY_minus)
+        {
+            glayerY_minus++;
+            extent_1DY_minus = glayerY_minus * clength1 + dminY;
+        }
+        double extent_1DZ_minus = glayerZ_minus * clength2 + dminZ;
+        while (radius > extent_1DZ_minus)
+        {
+            glayerZ_minus++;
+            extent_1DZ_minus = glayerZ_minus * clength2 + dminZ;
+        }
+
+        // in case the cell is not retangle.
+        // mohan added 2009-10-23
+        // if this is not added, it's a serious bug.
+        glayerX_minus++;
+        glayerY_minus++;
+        glayerZ_minus++;
+
+        //glayerX_minus++;
+        //glayerY_minus++;
+        //glayerZ_minus++;
+    2016-07-19, LiuXh*/
+    // Begin, 2016-07-19, LiuXh
+    double a23_1 = ucell.latvec.e22 * ucell.latvec.e33 - ucell.latvec.e23 * ucell.latvec.e32;
+    double a23_2 = ucell.latvec.e21 * ucell.latvec.e33 - ucell.latvec.e23 * ucell.latvec.e31;
+    double a23_3 = ucell.latvec.e21 * ucell.latvec.e32 - ucell.latvec.e22 * ucell.latvec.e31;
+    double a23_norm = sqrt(a23_1 * a23_1 + a23_2 * a23_2 + a23_3 * a23_3);
+    double extend_v = a23_norm * sradius;
+    double extend_d1 = extend_v / ucell.omega * ucell.lat0 * ucell.lat0 * ucell.lat0;
+    int extend_d11 = std::ceil(extend_d1);
+
+    double a31_1 = ucell.latvec.e32 * ucell.latvec.e13 - ucell.latvec.e33 * ucell.latvec.e12;
+    double a31_2 = ucell.latvec.e31 * ucell.latvec.e13 - ucell.latvec.e33 * ucell.latvec.e11;
+    double a31_3 = ucell.latvec.e31 * ucell.latvec.e12 - ucell.latvec.e32 * ucell.latvec.e11;
+    double a31_norm = sqrt(a31_1 * a31_1 + a31_2 * a31_2 + a31_3 * a31_3);
+    double extend_d2 = a31_norm * sradius / ucell.omega * ucell.lat0 * ucell.lat0 * ucell.lat0;
+    int extend_d22 = std::ceil(extend_d2);
+
+    double a12_1 = ucell.latvec.e12 * ucell.latvec.e23 - ucell.latvec.e13 * ucell.latvec.e22;
+    double a12_2 = ucell.latvec.e11 * ucell.latvec.e23 - ucell.latvec.e13 * ucell.latvec.e21;
+    double a12_3 = ucell.latvec.e11 * ucell.latvec.e22 - ucell.latvec.e12 * ucell.latvec.e21;
+    double a12_norm = sqrt(a12_1 * a12_1 + a12_2 * a12_2 + a12_3 * a12_3);
+    double extend_d3 = a12_norm * sradius / ucell.omega * ucell.lat0 * ucell.lat0 * ucell.lat0;
+    int extend_d33 = std::ceil(extend_d3);
+    // 2016-09-05, LiuXh
+
+    glayerX = extend_d11 + 1;
+    glayerY = extend_d22 + 1;
+    glayerZ = extend_d33 + 1;
+    glayerX_minus = extend_d11;
+    glayerY_minus = extend_d22;
+    glayerZ_minus = extend_d33;
+    // End, 2016-09-05, LiuXh
+}
+
+
 void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
-                              const UnitCell& ucell,
-                              const Atom_input& input)
+                              const UnitCell& ucell)
 {
     ModuleBase::TITLE("SLTK_Grid", "setMemberVariables");
 
     this->clear_atoms();
-
-    this->pbc = input.getBoundary();
-    this->sradius2 = input.getRadius() * input.getRadius();
-    this->sradius = input.getRadius();
-
-    if (test_grid)
-    {
-        ModuleBase::GlobalFunc::OUT(ofs_in, "PeriodicBoundary", this->pbc);
-        ModuleBase::GlobalFunc::OUT(ofs_in, "Radius(unit:lat0)", sradius);
-    }
 
     // random selection, in order to estimate again.
     this->x_min = ucell.atoms[0].tau[0].x;
@@ -55,11 +160,11 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
     ModuleBase::Vector3<double> vec3(ucell.latvec.e31, ucell.latvec.e32, ucell.latvec.e33);
 
     // calculate min & max value
-    for (int ix = -input.getGrid_layerX_minus(); ix < input.getGrid_layerX(); ix++)
+    for (int ix = -glayerX_minus; ix < glayerX; ix++)
     {
-        for (int iy = -input.getGrid_layerY_minus(); iy < input.getGrid_layerY(); iy++)
+        for (int iy = -glayerY_minus; iy < glayerY; iy++)
         {
-            for (int iz = -input.getGrid_layerZ_minus(); iz < input.getGrid_layerZ(); iz++)
+            for (int iz = -glayerZ_minus; iz < glayerZ; iz++)
             {
                 for (int i = 0; i < ucell.ntype; i++)
                 {
@@ -83,22 +188,12 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
     ModuleBase::GlobalFunc::OUT(ofs_in, "min_tau", x_min, y_min, z_min);
     ModuleBase::GlobalFunc::OUT(ofs_in, "max_tau", x_max, y_max, z_max);
 
-    this->cell_nx = input.getGrid_layerX() + input.getGrid_layerX_minus();
-    this->cell_ny = input.getGrid_layerY() + input.getGrid_layerY_minus();
-    this->cell_nz = input.getGrid_layerZ() + input.getGrid_layerZ_minus();
-    this->true_cell_x = input.getGrid_layerX_minus();
-    this->true_cell_y = input.getGrid_layerY_minus();
-    this->true_cell_z = input.getGrid_layerZ_minus();
-
     this->box_edge_length = sradius + 0.1; // To avoid edge cases, the size of the box is slightly increased.
 
     this->box_nx = std::ceil((this->x_max - this->x_min) / box_edge_length) + 1;
     this->box_ny = std::ceil((this->y_max - this->y_min) / box_edge_length) + 1;
     this->box_nz = std::ceil((this->z_max - this->z_min) / box_edge_length) + 1;
-
-    ModuleBase::GlobalFunc::OUT(ofs_in, "CellNumber", cell_nx, cell_ny, cell_nz);
     ModuleBase::GlobalFunc::OUT(ofs_in, "BoxNumber", box_nx, box_ny, box_nz);
-    ModuleBase::GlobalFunc::OUT(ofs_in, "TrueCellNumber", true_cell_x, true_cell_y, true_cell_z);
 
     atoms_in_box.resize(this->box_nx);
     for (int i = 0; i < this->box_nx; i++)
@@ -111,11 +206,11 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
     }
 
 
-    for (int ix = -input.getGrid_layerX_minus(); ix < input.getGrid_layerX(); ix++)
+    for (int ix = -glayerX_minus; ix < glayerX; ix++)
     {
-        for (int iy = -input.getGrid_layerY_minus(); iy < input.getGrid_layerY(); iy++)
+        for (int iy = -glayerY_minus; iy < glayerY; iy++)
         {
-            for (int iz = -input.getGrid_layerZ_minus(); iz < input.getGrid_layerZ(); iz++)
+            for (int iz = -glayerZ_minus; iz < glayerZ; iz++)
             {
                 for (int i = 0; i < ucell.ntype; i++)
                 {
@@ -157,18 +252,18 @@ void Grid::Construct_Adjacent(const UnitCell& ucell)
                      j_atom,
                      0, 0 ,0);
 
-            this->Construct_Adjacent_expand_periodic(atom);
+            this->Construct_Adjacent_near_box(atom);
         }
     }
     ModuleBase::timer::tick("Grid", "Construct_Adjacent_expand");
 }
 
-void Grid::Construct_Adjacent_expand_periodic(FAtom& fatom)
+void Grid::Construct_Adjacent_near_box(const FAtom& fatom)
 {
     //	if (test_grid)ModuleBase::TITLE(ofs_running, "Grid", "Construct_Adjacent_expand_periodic");
     ModuleBase::timer::tick("Grid", "Construct_Adjacent_expand_periodic");
     int box_i_x, box_i_y, box_i_z;
-    this->getBox(box_i_x, box_i_y, box_i_z, fatom.x(), fatom.y(), fatom.z());
+    this->getBox(box_i_x, box_i_y, box_i_z, fatom.x, fatom.y, fatom.z);
 
     for (int box_i_x_adj = std::max(box_i_x - 1, 0); box_i_x_adj <= std::min(box_i_x + 1, box_nx - 1); box_i_x_adj++)
     {
@@ -178,7 +273,7 @@ void Grid::Construct_Adjacent_expand_periodic(FAtom& fatom)
             {
                 for (auto &fatom2 : this->atoms_in_box[box_i_x_adj][box_i_y_adj][box_i_z_adj])
                 {
-                    this->Construct_Adjacent_final(fatom, fatom2);
+                    this->Construct_Adjacent_final(fatom, &fatom2);
                 }
             }
         }
@@ -186,17 +281,17 @@ void Grid::Construct_Adjacent_expand_periodic(FAtom& fatom)
     ModuleBase::timer::tick("Grid", "Construct_Adjacent_expand_periodic");
 }
 
-void Grid::Construct_Adjacent_final(FAtom& fatom1,
-                                    FAtom& fatom2)
+void Grid::Construct_Adjacent_final(const FAtom& fatom1,
+                                    FAtom* fatom2)
 {
-    double delta_x = fatom1.x() - fatom2.x();
-    double delta_y = fatom1.y() - fatom2.y();
-    double delta_z = fatom1.z() - fatom2.z();
+    double delta_x = fatom1.x - fatom2->x;
+    double delta_y = fatom1.y - fatom2->y;
+    double delta_z = fatom1.z - fatom2->z;
 
     double dr = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
 
     if (dr <= this->sradius2)
     {
-        all_adj_info[fatom1.getType()][fatom1.getNatom()].push_back(&fatom2);
+        all_adj_info[fatom1.type][fatom1.natom].push_back(fatom2);
     }
 }

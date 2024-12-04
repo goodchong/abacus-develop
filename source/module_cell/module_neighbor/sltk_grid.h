@@ -3,7 +3,6 @@
 
 #include "module_cell/unitcell.h"
 #include "sltk_atom.h"
-#include "sltk_atom_input.h"
 #include "sltk_util.h"
 
 #include <functional>
@@ -24,7 +23,7 @@ class Grid
 
     Grid& operator=(Grid&&) = default;
 
-    void init(std::ofstream& ofs, const UnitCell& ucell, const Atom_input& input);
+    void init(std::ofstream& ofs, const UnitCell& ucell, const double radius_in, const bool boundary = true);
 
     // Data
     bool pbc; // When pbc is set to false, periodic boundary conditions are explicitly ignored.
@@ -38,7 +37,7 @@ class Grid
     double x_max;
     double y_max;
     double z_max;
-
+/*
     // If there is no cells expansion, this would be 1, 1, 1.
     // If a cell is expanded, it indicates the number of unit cells in each direction, 
     // including the original unit cell. For example, 3, 3, 3 would mean 27 unit cells.
@@ -50,7 +49,7 @@ class Grid
     int true_cell_x;
     int true_cell_y;
     int true_cell_z;
-
+*/
     // The algorithm for searching neighboring atoms uses a "box" partitioning method. 
     // Each box has an edge length of sradius, and the number of boxes in each direction is recorded here.
     double box_edge_length;
@@ -71,48 +70,60 @@ class Grid
     std::vector<std::vector< std::vector<FAtom *> >> all_adj_info;
     void clear_atoms()
     {
+        // we have to clear the all_adj_info
+        // because the pointers point to the memory in vector atoms_in_box
+        all_adj_info.clear();
+
         atoms_in_box.clear();
     }
-
-    // LiuXh add 2019-07-15
-    int getCellX() const
+    void clear_adj_info()
     {
-        return cell_nx;
+        // here dont need to free the memory, 
+        // because the pointers point to the memory in vector atoms_in_box
+        all_adj_info.clear();
     }
-    int getCellY() const
+    int getGlayerX() const
     {
-        return cell_ny;
+        return glayerX;
     }
-    int getCellZ() const
+    int getGlayerY() const
     {
-        return cell_nz;
+        return glayerY;
     }
-    int getTrueCellX() const
+    int getGlayerZ() const
     {
-        return true_cell_x;
+        return glayerZ;
     }
-    int getTrueCellY() const
+    int getGlayerX_minus() const
     {
-        return true_cell_y;
+        return glayerX_minus;
     }
-    int getTrueCellZ() const
+    int getGlayerY_minus() const
     {
-        return true_cell_z;
+        return glayerY_minus;
     }
-
+    int getGlayerZ_minus() const
+    {
+        return glayerZ_minus;
+    }
   private:
     int test_grid;
 
-    void setMemberVariables(std::ofstream& ofs_in, const UnitCell& ucell, const Atom_input& input);
-
-    void setBoundaryAdjacent(std::ofstream& ofs_in, const Atom_input& input);
+    void setMemberVariables(std::ofstream& ofs_in, const UnitCell& ucell);
 
     void Construct_Adjacent(const UnitCell& ucell);
+    void Construct_Adjacent_near_box(const FAtom& fatom);
+    void Construct_Adjacent_final(const FAtom& fatom1, FAtom* fatom2);
 
-    void Construct_Adjacent_expand_periodic(FAtom& fatom);
+    void Check_Expand_Condition(const UnitCell& ucell);
+    int glayerX;
+    int glayerX_minus;
+    int glayerY;
+    int glayerY_minus;
+    int glayerZ;
+    int glayerZ_minus;
 
-    void Construct_Adjacent_final(FAtom& fatom1,
-                                  FAtom& fatom2);
+
 };
 
 #endif
