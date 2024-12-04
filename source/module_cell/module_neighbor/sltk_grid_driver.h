@@ -63,8 +63,9 @@ class Grid_Driver : public Grid
     // 2. And store results into parameter adjs when adjs is
     //     NOT NULL
     //==========================================================
-    void Find_atom(const int& ntype,
-                   const int& nnumber,
+    void Find_atom(const UnitCell& ucell,
+                   const int ntype,
+                   const int nnumber,
                    AdjacentAtomInfo* adjs = nullptr);
 
     // cartesian_posi and ucell is deprecated 20241204 zhanghaochong
@@ -75,7 +76,7 @@ class Grid_Driver : public Grid
                    const int& nnumber,
                    AdjacentAtomInfo* adjs = nullptr)
     {
-        this->Find_atom(ntype, nnumber, adjs);
+        this->Find_atom(ucell, ntype, nnumber, adjs);
     }
 
     //==========================================================

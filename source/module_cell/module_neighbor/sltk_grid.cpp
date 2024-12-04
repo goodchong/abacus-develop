@@ -294,7 +294,7 @@ void Grid::Construct_Adjacent_final(const FAtom& fatom1,
 
     double dr = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
 
-    if (dr <= this->sradius2)
+    if (dr != 0.0 && dr <= this->sradius2)
     {
         all_adj_info[fatom1.type][fatom1.natom].push_back(fatom2);
     }
