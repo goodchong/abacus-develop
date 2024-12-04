@@ -103,7 +103,7 @@ TEST_F(SltkGridTest, InitSmall)
     radius = 0.5;
     Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
     Grid LatGrid(PARAM.input.test_grid);
-    LatGrid.setMemberVariables(ofs, Atom_inp);
+    LatGrid.setMemberVariables(ofs,  *ucell,  Atom_inp);
     EXPECT_EQ(LatGrid.pbc, Atom_inp.getBoundary());
     EXPECT_TRUE(LatGrid.pbc);
     EXPECT_DOUBLE_EQ(LatGrid.sradius2, Atom_inp.getRadius() * Atom_inp.getRadius());
@@ -112,16 +112,10 @@ TEST_F(SltkGridTest, InitSmall)
     EXPECT_DOUBLE_EQ(LatGrid.sradius, 0.5);
     
     // minimal value of x, y, z
-    EXPECT_DOUBLE_EQ(LatGrid.d_minX, Atom_inp.minX());
-    EXPECT_DOUBLE_EQ(LatGrid.d_minY, Atom_inp.minY());
-    EXPECT_DOUBLE_EQ(LatGrid.d_minZ, Atom_inp.minZ());
     EXPECT_DOUBLE_EQ(LatGrid.true_cell_x, 2);
     EXPECT_DOUBLE_EQ(LatGrid.true_cell_y, 2);
     EXPECT_DOUBLE_EQ(LatGrid.true_cell_z, 2);
     // number of cells in x, y, z
-    EXPECT_EQ(LatGrid.cell_nx, Atom_inp.getCell_nX());
-    EXPECT_EQ(LatGrid.cell_ny, Atom_inp.getCell_nY());
-    EXPECT_EQ(LatGrid.cell_nz, Atom_inp.getCell_nZ());
     EXPECT_EQ(LatGrid.cell_nx, 4);
     EXPECT_EQ(LatGrid.cell_ny, 4);
     EXPECT_EQ(LatGrid.cell_nz, 4);

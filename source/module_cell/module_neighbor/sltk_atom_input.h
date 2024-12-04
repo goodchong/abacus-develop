@@ -19,11 +19,6 @@ class Atom_input
     ~Atom_input();
 
   public:
-    bool getExpandFlag() const
-    {
-        return expand_flag;
-    }
-
     int getBoundary() const
     {
         return periodic_boundary;
@@ -34,45 +29,6 @@ class Atom_input
         return radius;
     }
 
-    //==========================================================
-    //
-    //==========================================================
-    double minX() const
-    {
-		return x_min;
-    }
-
-    double minY() const
-    {
-		return y_min;
-    }
-
-    double minZ() const
-    {
-		return z_min;
-    }
-
-    //==========================================================
-    //
-    //==========================================================
-    int getCell_nX() const
-    {
-        return cell_nx;
-    }
-
-    int getCell_nY() const
-    {
-        return cell_ny;
-    }
-
-    int getCell_nZ() const
-    {
-        return cell_nz;
-    }
-
-    //==========================================================
-    //
-    //==========================================================
     int getGrid_layerX() const
     {
         return glayerX;
@@ -106,36 +62,15 @@ class Atom_input
   private:
     int test_atom_input; // caoyu reconst 2021-05-24
     bool periodic_boundary;
-
     double radius;
 
-    double x_min;
-    double y_min;
-    double z_min;
-    double x_max;
-    double y_max;
-    double z_max;
-    //==========================================================
-    // MEMBRE FUNCTION :
-    // NAME : Check_Expand_Condition
-    //==========================================================
     void Check_Expand_Condition(const UnitCell& ucell);
-    bool expand_flag;
     int glayerX;
     int glayerX_minus;
     int glayerY;
     int glayerY_minus;
     int glayerZ;
     int glayerZ_minus;
-
-    //==========================================================
-    // MEMBRE FUNCTION :
-    // NAME : Expand_Grid
-    //==========================================================
-    void calculate_cells();
-    int cell_nx;
-    int cell_ny;
-    int cell_nz;
 };
 
 #endif

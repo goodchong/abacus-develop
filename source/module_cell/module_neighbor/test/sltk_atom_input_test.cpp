@@ -127,15 +127,8 @@ TEST_F(SltkAtomInputTest, Getters)
     ucell->check_dtau();
     test_atom_in = 2;
     Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
-    EXPECT_TRUE(Atom_inp.getExpandFlag());
     EXPECT_EQ(Atom_inp.getBoundary(), 1);
     EXPECT_NEAR(Atom_inp.getRadius(), 2.55196, 1e-5);
-    EXPECT_DOUBLE_EQ(Atom_inp.minX(), -0.75);
-    EXPECT_DOUBLE_EQ(Atom_inp.minY(), 0);
-    EXPECT_DOUBLE_EQ(Atom_inp.minZ(), 0);
-    EXPECT_EQ(Atom_inp.getCell_nX(), 11);
-    EXPECT_EQ(Atom_inp.getCell_nY(), 11);
-    EXPECT_EQ(Atom_inp.getCell_nZ(), 11);
     EXPECT_EQ(Atom_inp.getGrid_layerX(), 6);
     EXPECT_EQ(Atom_inp.getGrid_layerY(), 6);
     EXPECT_EQ(Atom_inp.getGrid_layerZ(), 6);
@@ -220,7 +213,6 @@ TEST_F(SltkAtomInputTest, ConstructorNoExpand)
     // because the expand_flag will be false!
     radius = 0;
     Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
-    EXPECT_FALSE(Atom_inp.getExpandFlag());
     ofs.close();
     ifs.open("test.out");
     std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
@@ -245,7 +237,6 @@ TEST_F(SltkAtomInputTest, ConstructorSmallSearchRadius)
     PARAM.input.test_grid = 1;
     radius = 0.5;
     Atom_input Atom_inp(ofs, *ucell, pbc, radius, test_atom_in);
-    EXPECT_TRUE(Atom_inp.getExpandFlag());
     ofs.close();
     ifs.open("test.out");
     std::string str((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
