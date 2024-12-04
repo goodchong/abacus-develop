@@ -246,13 +246,13 @@ void cal_r_overlap_R::out_rR(const UnitCell& ucell, const int& istep)
 
     int step = istep;
     // set R coor range
-    int R_minX = int(-GlobalC::GridD.getTrueCellX());
-    int R_minY = int(-GlobalC::GridD.getTrueCellY());
-    int R_minZ = int(-GlobalC::GridD.getTrueCellZ());
+    int R_minX = int(-GlobalC::GridD.getGlayerX_minus());
+    int R_minY = int(-GlobalC::GridD.getGlayerY_minus());
+    int R_minZ = int(-GlobalC::GridD.getGlayerZ_minus());
 
-    int R_x = GlobalC::GridD.getCellX();
-    int R_y = GlobalC::GridD.getCellY();
-    int R_z = GlobalC::GridD.getCellZ();
+    int R_x = GlobalC::GridD.getGlayerX();
+    int R_y = GlobalC::GridD.getGlayerY();
+    int R_z = GlobalC::GridD.getGlayerZ();
 
     std::set<Abfs::Vector3_Order<int>> all_R_coor;
     for (int ix = 0; ix < R_x; ix++)

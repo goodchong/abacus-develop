@@ -2,7 +2,6 @@
 
 #include "module_base/timer.h"
 #include "module_parameter/parameter.h"
-#include "sltk_atom_input.h"
 #include "sltk_grid.h"
 #include "sltk_grid_driver.h"
 
@@ -79,16 +78,20 @@ void atom_arrange::search(const bool pbc_flag,
     ModuleBase::GlobalFunc::OUT(ofs_in, "searching radius unit is (Bohr))", ucell.lat0);
 
     assert(ucell.nat > 0);
-    //=============================
-    // Initial Atom information
-    //=============================
 
+    /*
+    2024-12-04 Zhang Haochong
+        The neighboring atom search module has been completely rewritten.
+        The new algorithm places atoms into boxes with an edge length of twice the atomic radius. The neighboring 
+    atom list stores the data using the atom's type and its index within that type.
+        By setting pbc_flag = false, periodic boundary conditions can be forcibly disabled. In this case, the search 
+    process will not expand the supercell, and the neighboring atoms will only consider those within the original unit cell.
+    */
     const double radius_lat0unit = search_radius_bohr / ucell.lat0;
 
+    // Atom_input at(ofs_in, ucell, pbc_flag, radius_lat0unit, test_atom_in);
 
-    Atom_input at(ofs_in, ucell, pbc_flag, radius_lat0unit, test_atom_in);
-
-    grid_d.init(ofs_in, ucell, at);
+    grid_d.init(ofs_in, ucell, radius_lat0unit, pbc_flag);
 
 	// The screen output is very time-consuming. To avoid interfering with the timing, we will insert logging here earlier.
     ModuleBase::timer::tick("atom_arrange", "search");
@@ -125,21 +128,4 @@ void atom_arrange::search(const bool pbc_flag,
     }
 
     return;
-}
-
-// 2015-05-07
-void atom_arrange::delete_vector(std::ofstream& ofs_in,
-                                 const bool pbc_flag, // GlobalV::SEARCH_PBC
-                                 Grid_Driver& grid_d,
-                                 const UnitCell& ucell,
-                                 const double& search_radius_bohr,
-                                 const int& test_atom_in)
-{
-    const double radius_lat0unit2 = search_radius_bohr / ucell.lat0;
-
-    Atom_input at2(ofs_in, ucell, pbc_flag, radius_lat0unit2, test_atom_in);
-
-    grid_d.delete_vector(at2.getGrid_layerX_minus(), at2.getGrid_layerY_minus(), at2.getGrid_layerZ_minus());
-
-    grid_d.clear_atoms();
 }

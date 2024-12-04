@@ -89,13 +89,7 @@ void ESolver_LJ::runner(UnitCell& ucell, const int istep)
         }
     }
 #ifdef __MPI
-        atom_arrange::delete_vector(
-            GlobalV::ofs_running,
-            PARAM.inp.search_pbc,
-            grid_neigh,
-            ucell, 
-            search_radius,
-            PARAM.inp.test_atom_input);
+    grid_neigh.clear_atoms();
 #endif
     }
 

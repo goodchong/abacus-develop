@@ -35,18 +35,13 @@ void Grid_Driver::Find_atom(const UnitCell& ucell,
     AdjacentAtomInfo* local_adjs = adjs == nullptr ? &this->adj_info : adjs;
     local_adjs->clear();
     const std::vector<FAtom*>& all_atom = all_adj_info[ntype][nnumber];
-    // std::cout << "ntype = "<< ntype << "  atom size = " << all_atom.size() << std::endl;
-
-    ModuleBase::Vector3<double> vec1(ucell.latvec.e11, ucell.latvec.e12, ucell.latvec.e13);
-    ModuleBase::Vector3<double> vec2(ucell.latvec.e21, ucell.latvec.e22, ucell.latvec.e23);
-    ModuleBase::Vector3<double> vec3(ucell.latvec.e31, ucell.latvec.e32, ucell.latvec.e33);
 
     for (const FAtom* atom: all_atom)
     {
-        local_adjs->ntype.push_back(atom->getType());
-        local_adjs->natom.push_back(atom->getNatom());
-        local_adjs->box.push_back(ModuleBase::Vector3<int>(atom->getCellX(), atom->getCellY(), atom->getCellZ()));
-        local_adjs->adjacent_tau.push_back(ModuleBase::Vector3<double>(atom->x(), atom->y(), atom->z()));
+        local_adjs->ntype.push_back(atom->type);
+        local_adjs->natom.push_back(atom->natom);
+        local_adjs->box.push_back(ModuleBase::Vector3<int>(atom->cell_x, atom->cell_y, atom->cell_z));
+        local_adjs->adjacent_tau.push_back(ModuleBase::Vector3<double>(atom->x, atom->y, atom->z));
         local_adjs->adj_num++;
     }
     local_adjs->adj_num--;
