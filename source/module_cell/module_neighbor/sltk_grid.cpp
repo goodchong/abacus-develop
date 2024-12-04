@@ -294,6 +294,12 @@ void Grid::Construct_Adjacent_final(const FAtom& fatom1,
 
     double dr = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
 
+
+    // 20241204 zhanghaochong
+    // dr == 0 means the same atom
+    // the atom itself is neighbour atom, but the order itself must on last in the list.
+    // so we will add itself on find atom function, and skip here.
+    // I dont know why, but if we add self here, test 701_LJ_MD_Anderson will assert
     if (dr != 0.0 && dr <= this->sradius2)
     {
         all_adj_info[fatom1.type][fatom1.natom].push_back(fatom2);

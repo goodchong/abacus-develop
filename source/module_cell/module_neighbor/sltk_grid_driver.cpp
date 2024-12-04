@@ -43,12 +43,24 @@ void Grid_Driver::Find_atom(const UnitCell& ucell,
         local_adjs->adjacent_tau.push_back(ModuleBase::Vector3<double>(atom->x, atom->y, atom->z));
         local_adjs->adj_num++;
     }
+    // 20241204 zhanghaochong
+    // for some unknown reason, the last neighbour atom must be it self
+    // is self must in last, the order cannot be changed.
+    // if self not in last, test 701_LJ_MD_Anderson will assert
 	local_adjs->ntype.push_back(ntype);
 	local_adjs->natom.push_back(nnumber);
 	local_adjs->box.push_back(ModuleBase::Vector3<int>(0, 0, 0));
 	local_adjs->adjacent_tau.push_back(ModuleBase::Vector3<double>(ucell.atoms[ntype].tau[nnumber].x, ucell.atoms[ntype].tau[nnumber].y, ucell.atoms[ntype].tau[nnumber].z));
     ModuleBase::timer::tick("Grid_Driver", "Find_atom");
     return;
+}
+void Grid_Driver::Find_atom(const UnitCell& ucell,
+                   const ModuleBase::Vector3<double>& cartesian_posi,
+                   const int& ntype,
+                   const int& nnumber,
+                   AdjacentAtomInfo* adjs)
+{
+    this->Find_atom(ucell, ntype, nnumber, adjs);
 }
 
 // filter_adjs delete not adjacent atoms in adjs
