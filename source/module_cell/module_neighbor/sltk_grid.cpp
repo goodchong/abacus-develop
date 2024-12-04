@@ -26,6 +26,9 @@ void Grid::init(std::ofstream& ofs_in, const UnitCell& ucell, const double radiu
     ModuleBase::GlobalFunc::OUT(ofs_in, "Radius(unit:lat0)", sradius);
 
     this->Check_Expand_Condition(ucell);
+    ModuleBase::GlobalFunc::OUT(ofs_in, "glayer", glayerX, glayerY, glayerZ);
+    ModuleBase::GlobalFunc::OUT(ofs_in, "glayer_minus", glayerX_minus, glayerY_minus, glayerZ_minus);
+
     this->setMemberVariables(ofs_in, ucell);
     this->Construct_Adjacent(ucell);
     ModuleBase::timer::tick("atom_arrange", "grid_d.init");
@@ -137,6 +140,7 @@ void Grid::Check_Expand_Condition(const UnitCell& ucell)
     glayerY_minus = extend_d22;
     glayerZ_minus = extend_d33;
     // End, 2016-09-05, LiuXh
+
 }
 
 
