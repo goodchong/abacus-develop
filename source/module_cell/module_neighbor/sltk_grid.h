@@ -37,19 +37,7 @@ class Grid
     double x_max;
     double y_max;
     double z_max;
-/*
-    // If there is no cells expansion, this would be 1, 1, 1.
-    // If a cell is expanded, it indicates the number of unit cells in each direction, 
-    // including the original unit cell. For example, 3, 3, 3 would mean 27 unit cells.
-    int cell_nx;
-    int cell_ny;
-    int cell_nz;
 
-    // true cell means the index of original cell. cell index start from 0 to (nx-1)
-    int true_cell_x;
-    int true_cell_y;
-    int true_cell_z;
-*/
     // The algorithm for searching neighboring atoms uses a "box" partitioning method. 
     // Each box has an edge length of sradius, and the number of boxes in each direction is recorded here.
     double box_edge_length;
@@ -122,8 +110,6 @@ class Grid
     int glayerY_minus;
     int glayerZ;
     int glayerZ_minus;
-
-
 };
 
 #endif
