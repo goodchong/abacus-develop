@@ -9,8 +9,8 @@
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
-
-typedef std::vector<FAtom> AtomMap;
+#include <vector>
+#include <list>
 
 class Grid
 {
@@ -49,17 +49,33 @@ class Grid
         by = std::floor((y - y_min) / box_edge_length);
         bz = std::floor((z - z_min) / box_edge_length);
     }
+
+    // 20241210 zhanghaochong 
+    // Here, instances of all atoms are stored as a single copy in the atoms_in_box structure, 
+    // which is a quadruple nested combination of vector and list. The all_adj_info structure only 
+    // stores pointers that reference the memory of atoms_in_box. Please note that vector is !NOT! a 
+    // memory-stable data structure. During operations such as resize or push_back, the addresses of 
+    // existing data within the vector may change. Therefore, if atoms_in_box undergoes resize, push_back, 
+    // or erase after all_adj_info has been set to point to it, the pointers in all_adj_info will 
+    // result in memory leaks.
+    // Therefore, atoms_in_box and all_adj_info vector part must not undergo any push_back or erase operations during 
+    // use. After resizing during initialization, they should not be modified.
+
     // Stores the atoms after box partitioning.
-    std::vector<std::vector<std::vector<AtomMap>>> atoms_in_box;
+    std::vector<std::vector<std::vector< std::list<FAtom> >>> atoms_in_box;
 
     // Stores the adjacent information of atoms. [ntype][natom][adj list]
-    std::vector<std::vector< std::vector<FAtom *> >> all_adj_info;
+    std::vector<std::vector< std::list<FAtom *> >> all_adj_info;
+    // There are two main benefits to storing atomic information in a single copy and using pointers for 
+    // the other. On one hand, the construction and copying cost of the fatom class during computation 
+    // should not be underestimated. On the other hand, it saves memory. If we need to deal with millions 
+    // of atoms, just storing the atoms themselves would consume a significant amount of memory.
+
     void clear_atoms()
     {
         // we have to clear the all_adj_info
         // because the pointers point to the memory in vector atoms_in_box
         all_adj_info.clear();
-
         atoms_in_box.clear();
     }
     void clear_adj_info()

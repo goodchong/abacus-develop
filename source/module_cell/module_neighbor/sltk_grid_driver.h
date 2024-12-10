@@ -62,6 +62,10 @@ class Grid_Driver : public Grid
     //     by default.
     // 2. And store results into parameter adjs when adjs is
     //     NOT NULL
+    // Find_atom store results in Grid_Driver::adj_info still kept mainly for compatibility purposes.
+    // Grid_Driver::adj_info is a poor design and is NOT thread-safe.
+    // Please try to use the AdjacentAtomInfo* adjs parameter passing method to obtain the neighboring 
+    // atom list results.
     //==========================================================
     void Find_atom(const UnitCell& ucell,
                    const int ntype,
@@ -70,6 +74,7 @@ class Grid_Driver : public Grid
 
     // cartesian_posi and ucell is deprecated 20241204 zhanghaochong
     // this interface is deprecated, please use Find_atom above
+    // This interface is still kept mainly for compatibility purposes.
     void Find_atom(const UnitCell& ucell,
                    const ModuleBase::Vector3<double>& cartesian_posi,
                    const int& ntype,

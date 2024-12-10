@@ -21,6 +21,11 @@ void Grid::init(std::ofstream& ofs_in, const UnitCell& ucell, const double radiu
     this->pbc = boundary;
     this->sradius2 = radius_in * radius_in;
     this->sradius = radius_in;
+    // 20241210 zhanghaochong 
+    // Considering the possibility that a Grid instance might have its init method called again without 
+    // being destructed or destroyed, it would be better to destroy the member variables here to prevent 
+    // issues, even though such a scenario reflects poor programming practices.
+    this->clear_atoms();
 
     ModuleBase::GlobalFunc::OUT(ofs_in, "PeriodicBoundary", this->pbc);
     ModuleBase::GlobalFunc::OUT(ofs_in, "Radius(unit:lat0)", sradius);
@@ -116,21 +121,21 @@ void Grid::Check_Expand_Condition(const UnitCell& ucell)
     double a23_norm = sqrt(a23_1 * a23_1 + a23_2 * a23_2 + a23_3 * a23_3);
     double extend_v = a23_norm * sradius;
     double extend_d1 = extend_v / ucell.omega * ucell.lat0 * ucell.lat0 * ucell.lat0;
-    int extend_d11 = std::ceil(extend_d1);
+    int extend_d11 = static_cast<int>(std::ceil(extend_d1));
 
     double a31_1 = ucell.latvec.e32 * ucell.latvec.e13 - ucell.latvec.e33 * ucell.latvec.e12;
     double a31_2 = ucell.latvec.e31 * ucell.latvec.e13 - ucell.latvec.e33 * ucell.latvec.e11;
     double a31_3 = ucell.latvec.e31 * ucell.latvec.e12 - ucell.latvec.e32 * ucell.latvec.e11;
     double a31_norm = sqrt(a31_1 * a31_1 + a31_2 * a31_2 + a31_3 * a31_3);
     double extend_d2 = a31_norm * sradius / ucell.omega * ucell.lat0 * ucell.lat0 * ucell.lat0;
-    int extend_d22 = std::ceil(extend_d2);
+    int extend_d22 = static_cast<int>(std::ceil(extend_d2));
 
     double a12_1 = ucell.latvec.e12 * ucell.latvec.e23 - ucell.latvec.e13 * ucell.latvec.e22;
     double a12_2 = ucell.latvec.e11 * ucell.latvec.e23 - ucell.latvec.e13 * ucell.latvec.e21;
     double a12_3 = ucell.latvec.e11 * ucell.latvec.e22 - ucell.latvec.e12 * ucell.latvec.e21;
     double a12_norm = sqrt(a12_1 * a12_1 + a12_2 * a12_2 + a12_3 * a12_3);
     double extend_d3 = a12_norm * sradius / ucell.omega * ucell.lat0 * ucell.lat0 * ucell.lat0;
-    int extend_d33 = std::ceil(extend_d3);
+    int extend_d33 = static_cast<int>(std::ceil(extend_d3));
     // 2016-09-05, LiuXh
 
     glayerX = extend_d11 + 1;
@@ -148,7 +153,8 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
                               const UnitCell& ucell)
 {
     ModuleBase::TITLE("SLTK_Grid", "setMemberVariables");
-
+    // 20241210 zhanghaochong
+    // To prevent the possibility of someone calling setMemberVariables twice.
     this->clear_atoms();
 
     // random selection, in order to estimate again.
@@ -170,19 +176,19 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
         {
             for (int iz = -glayerZ_minus; iz < glayerZ; iz++)
             {
-                for (int i = 0; i < ucell.ntype; i++)
+                for (int j_type = 0; j_type < ucell.ntype; j_type++)
                 {
-                    for (int j = 0; j < ucell.atoms[i].na; j++)
+                    for (int k_natom = 0; k_natom < ucell.atoms[j_type].na; k_natom++)
                     {
-                        double x = ucell.atoms[i].tau[j].x + vec1[0] * ix + vec2[0] * iy + vec3[0] * iz;
-                        double y = ucell.atoms[i].tau[j].y + vec1[1] * ix + vec2[1] * iy + vec3[1] * iz;
-                        double z = ucell.atoms[i].tau[j].z + vec1[2] * ix + vec2[2] * iy + vec3[2] * iz;
-                        x_min = std::min(x_min, x);
-                        x_max = std::max(x_max, x);
-                        y_min = std::min(y_min, y);
-                        y_max = std::max(y_max, y);
-                        z_min = std::min(z_min, z);
-                        z_max = std::max(z_max, z);
+                        double x = ucell.atoms[j_type].tau[k_natom].x + vec1[0] * ix + vec2[0] * iy + vec3[0] * iz;
+                        double y = ucell.atoms[j_type].tau[k_natom].y + vec1[1] * ix + vec2[1] * iy + vec3[1] * iz;
+                        double z = ucell.atoms[j_type].tau[k_natom].z + vec1[2] * ix + vec2[2] * iy + vec3[2] * iz;
+                        this->x_min = std::min(this->x_min, x);
+                        this->x_max = std::max(this->x_max, x);
+                        this->y_min = std::min(this->y_min, y);
+                        this->y_max = std::max(this->y_max, y);
+                        this->z_min = std::min(this->z_min, z);
+                        this->z_max = std::max(this->z_max, z);
                     }
                 }
             }
@@ -194,10 +200,16 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
 
     this->box_edge_length = sradius + 0.1; // To avoid edge cases, the size of the box is slightly increased.
 
+    // 20241210 zhanghaochong +1 maybe unnecessary.
     this->box_nx = std::ceil((this->x_max - this->x_min) / box_edge_length) + 1;
     this->box_ny = std::ceil((this->y_max - this->y_min) / box_edge_length) + 1;
     this->box_nz = std::ceil((this->z_max - this->z_min) / box_edge_length) + 1;
     ModuleBase::GlobalFunc::OUT(ofs_in, "BoxNumber", box_nx, box_ny, box_nz);
+
+
+    // 20241210 zhanghaochong 
+    // atoms_in_box and all_adj_info vector part must not undergo any push_back or erase operations during 
+    // use. After resizing during initialization, they size should not be modified.
 
     atoms_in_box.resize(this->box_nx);
     for (int i = 0; i < this->box_nx; i++)
@@ -216,14 +228,14 @@ void Grid::setMemberVariables(std::ofstream& ofs_in, //  output data to ofs
         {
             for (int iz = -glayerZ_minus; iz < glayerZ; iz++)
             {
-                for (int i = 0; i < ucell.ntype; i++)
+                for (int j_type = 0; j_type < ucell.ntype; j_type++)
                 {
-                    for (int j = 0; j < ucell.atoms[i].na; j++)
+                    for (int k_natom = 0; k_natom < ucell.atoms[j_type].na; k_natom++)
                     {
-                        double x = ucell.atoms[i].tau[j].x + vec1[0] * ix + vec2[0] * iy + vec3[0] * iz;
-                        double y = ucell.atoms[i].tau[j].y + vec1[1] * ix + vec2[1] * iy + vec3[1] * iz;
-                        double z = ucell.atoms[i].tau[j].z + vec1[2] * ix + vec2[2] * iy + vec3[2] * iz;
-                        FAtom atom(x, y, z, i, j, ix, iy, iz);
+                        double x = ucell.atoms[j_type].tau[k_natom].x + vec1[0] * ix + vec2[0] * iy + vec3[0] * iz;
+                        double y = ucell.atoms[j_type].tau[k_natom].y + vec1[1] * ix + vec2[1] * iy + vec3[1] * iz;
+                        double z = ucell.atoms[j_type].tau[k_natom].z + vec1[2] * ix + vec2[2] * iy + vec3[2] * iz;
+                        FAtom atom(x, y, z, j_type, k_natom, ix, iy, iz);
                         int box_i_x, box_i_y, box_i_z;
                         this->getBox(box_i_x, box_i_y, box_i_z, x, y, z);
                         this->atoms_in_box[box_i_x][box_i_y][box_i_z].push_back(atom);
@@ -299,7 +311,7 @@ void Grid::Construct_Adjacent_final(const FAtom& fatom1,
     // dr == 0 means the same atom
     // the atom itself is neighbour atom, but the order itself must on last in the list.
     // so we will add itself on find atom function, and skip here.
-    // I dont know why, but if we add self here, test 701_LJ_MD_Anderson will assert
+
     if (dr != 0.0 && dr <= this->sradius2)
     {
         all_adj_info[fatom1.type][fatom1.natom].push_back(fatom2);
