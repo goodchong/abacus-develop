@@ -310,9 +310,9 @@ void toWannier90_LCAO::set_R_coor(const UnitCell& ucell, const Grid_Driver& gd)
     int R_minY = int(-gd.getGlayerY_minus());
     int R_minZ = int(-gd.getGlayerZ_minus());
 
-    int R_x = gd.getGlayerX();
-    int R_y = gd.getGlayerY();
-    int R_z = gd.getGlayerZ();
+    int R_x = gd.getGlayerX() + gd.getGlayerX_minus();
+    int R_y = gd.getGlayerY() + gd.getGlayerY_minus();
+    int R_z = gd.getGlayerZ() + gd.getGlayerZ_minus();
 
     int R_num = R_x * R_y * R_z;
     R_coor_car.resize(R_num);
