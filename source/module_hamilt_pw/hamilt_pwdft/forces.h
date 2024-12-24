@@ -9,6 +9,7 @@
 #include "module_cell/klist.h"
 #include "module_cell/module_symmetry/symmetry.h"
 #include "module_elecstate/elecstate.h"
+#include "module_hamilt_pw/hamilt_pwdft/VL_in_pw.h"
 #include "module_hamilt_pw/hamilt_pwdft/kernels/force_op.h"
 #include "module_hsolver/kernels/math_kernel_op.h"
 #include "module_psi/psi.h"
@@ -33,12 +34,13 @@ class Forces
     Forces(const int nat_in) : nat(nat_in){};
     ~Forces(){};
 
-    void cal_force(const UnitCell& ucell,
+    void cal_force(UnitCell& ucell,
                    ModuleBase::matrix& force,
                    const elecstate::ElecState& elec,
                    ModulePW::PW_Basis* rho_basis,
                    ModuleSymmetry::Symmetry* p_symm,
                    Structure_Factor* p_sf,
+                   surchem& solvent,
                    const pseudopot_cell_vl* locpp,
                    const pseudopot_cell_vnl* nlpp = nullptr,
                    K_Vectors* pkv = nullptr,
@@ -82,6 +84,17 @@ class Forces
                       const pseudopot_cell_vnl& nlpp_in,
                       const UnitCell& ucell_in,
                       const psi::Psi<std::complex<FPTYPE>, Device>* psi_in = nullptr);
+    /// @brief atomic force for DFT+U and DeltaSpin
+    /// @param force_onsite , the output atomic force
+    /// @param wg , the weight of k points
+    /// @param wfc_basis , the plane wave basis
+    /// @param ucell_in , the unit cell
+    /// @param psi_in , the wave function
+    void cal_force_onsite(ModuleBase::matrix& force_onsite,
+                      const ModuleBase::matrix& wg,
+                      const ModulePW::PW_Basis_K* wfc_basis,
+                      const UnitCell& ucell_in,
+                      const psi::Psi<complex<FPTYPE>, Device>* psi_in = nullptr);
     void cal_force_scc(ModuleBase::matrix& forcescc,
                        ModulePW::PW_Basis* rho_basis,
                        const ModuleBase::matrix& v_current,

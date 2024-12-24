@@ -8,11 +8,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-
-namespace GlobalC
-{
-Grid_Driver GridD;
-}
 Grid_Driver::Grid_Driver(const int& test_d_in, const int& test_grid_in) : Grid(test_grid_in)
 {
 	test_deconstructor	= test_d_in;
@@ -25,7 +20,7 @@ Grid_Driver::~Grid_Driver()
 void Grid_Driver::Find_atom(const UnitCell& ucell,
                             const int ntype,
                             const int nnumber,
-                            AdjacentAtomInfo* adjs)
+                            AdjacentAtomInfo* adjs) const
 {
     ModuleBase::timer::tick("Grid_Driver", "Find_atom");
     //	std::cout << "lenght in Find atom = " << atomlink[offset].fatom.getAdjacentSet()->getLength() << std::endl;
@@ -58,7 +53,7 @@ void Grid_Driver::Find_atom(const UnitCell& ucell,
                    const ModuleBase::Vector3<double>& cartesian_posi,
                    const int& ntype,
                    const int& nnumber,
-                   AdjacentAtomInfo* adjs)
+                   AdjacentAtomInfo* adjs) const
 {
     this->Find_atom(ucell, ntype, nnumber, adjs);
 }

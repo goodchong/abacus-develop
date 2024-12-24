@@ -239,20 +239,20 @@ void cal_r_overlap_R::init(const UnitCell& ucell,const Parallel_Orbitals& pv, co
     return;
 }
 
-void cal_r_overlap_R::out_rR(const UnitCell& ucell, const int& istep)
+void cal_r_overlap_R::out_rR(const UnitCell& ucell, const Grid_Driver& gd, const int& istep)
 {
     ModuleBase::TITLE("cal_r_overlap_R", "out_rR");
     ModuleBase::timer::tick("cal_r_overlap_R", "out_rR");
 
     int step = istep;
     // set R coor range
-    int R_minX = int(-GlobalC::GridD.getGlayerX_minus());
-    int R_minY = int(-GlobalC::GridD.getGlayerY_minus());
-    int R_minZ = int(-GlobalC::GridD.getGlayerZ_minus());
+    int R_minX = int(-gd.getGlayerX_minus());
+    int R_minY = int(-gd.getGlayerY_minus());
+    int R_minZ = int(-gd.getGlayerZ_minus());
 
-    int R_x = GlobalC::GridD.getGlayerX() + GlobalC::GridD.getGlayerX_minus();
-    int R_y = GlobalC::GridD.getGlayerY() + GlobalC::GridD.getGlayerY_minus();
-    int R_z = GlobalC::GridD.getGlayerZ() + GlobalC::GridD.getGlayerZ_minus();
+    int R_x = gd.getGlayerX() + gd.getGlayerX_minus();
+    int R_y = gd.getGlayerY() + gd.getGlayerY_minus();
+    int R_z = gd.getGlayerZ() + gd.getGlayerZ_minus();
 
     std::set<Abfs::Vector3_Order<int>> all_R_coor;
     for (int ix = 0; ix < R_x; ix++)

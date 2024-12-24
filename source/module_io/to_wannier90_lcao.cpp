@@ -39,6 +39,7 @@ toWannier90_LCAO::~toWannier90_LCAO()
 }
 
 void toWannier90_LCAO::calculate(const UnitCell& ucell,
+                                 const Grid_Driver& gd,
                                  const ModuleBase::matrix& ekb,
                                  const K_Vectors& kv,
                                  const psi::Psi<std::complex<double>>& psi,
@@ -114,7 +115,7 @@ void toWannier90_LCAO::calculate(const UnitCell& ucell,
 
         initialize_orb_table(ucell);
         produce_basis_orb();
-        set_R_coor(ucell);
+        set_R_coor(ucell, gd);
         count_delta_k(ucell,kv);
     }
 
@@ -138,7 +139,7 @@ void toWannier90_LCAO::calculate(const UnitCell& ucell,
                 return exp_idkr;
             };
 
-            FR[i].set_parameters(fr_ptr[i], &ucell, &orb_, &GlobalC::GridD, ParaV, 140, 110);
+            FR[i].set_parameters(fr_ptr[i], &ucell, &orb_, &gd, ParaV, 140, 110);
             FR[i].calculate_FR();
         }
 
@@ -303,15 +304,15 @@ void toWannier90_LCAO::initialize_orb_table(const UnitCell& ucell)
 #endif
 }
 
-void toWannier90_LCAO::set_R_coor(const UnitCell& ucell)
+void toWannier90_LCAO::set_R_coor(const UnitCell& ucell, const Grid_Driver& gd)
 {
-    int R_minX = int(-GlobalC::GridD.getGlayerX_minus());
-    int R_minY = int(-GlobalC::GridD.getGlayerY_minus());
-    int R_minZ = int(-GlobalC::GridD.getGlayerZ_minus());
+    int R_minX = int(-gd.getGlayerX_minus());
+    int R_minY = int(-gd.getGlayerY_minus());
+    int R_minZ = int(-gd.getGlayerZ_minus());
 
-    int R_x = GlobalC::GridD.getGlayerX() + GlobalC::GridD.getGlayerX_minus();
-    int R_y = GlobalC::GridD.getGlayerY() + GlobalC::GridD.getGlayerY_minus();
-    int R_z = GlobalC::GridD.getGlayerZ() + GlobalC::GridD.getGlayerZ_minus();
+    int R_x = gd.getGlayerX() + gd.getGlayerX_minus();
+    int R_y = gd.getGlayerY() + gd.getGlayerY_minus();
+    int R_z = gd.getGlayerZ() + gd.getGlayerZ_minus();
 
     int R_num = R_x * R_y * R_z;
     R_coor_car.resize(R_num);

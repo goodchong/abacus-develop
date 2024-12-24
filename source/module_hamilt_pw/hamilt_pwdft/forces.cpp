@@ -24,12 +24,13 @@
 #endif
 
 template <typename FPTYPE, typename Device>
-void Forces<FPTYPE, Device>::cal_force(const UnitCell& ucell,
+void Forces<FPTYPE, Device>::cal_force(UnitCell& ucell,
                                        ModuleBase::matrix& force,
                                        const elecstate::ElecState& elec,
                                        ModulePW::PW_Basis* rho_basis,
                                        ModuleSymmetry::Symmetry* p_symm,
                                        Structure_Factor* p_sf,
+                                       surchem& solvent,
                                        const pseudopot_cell_vl* locpp,
                                        const pseudopot_cell_vnl* p_nlpp,
                                        K_Vectors* pkv,
@@ -50,6 +51,7 @@ void Forces<FPTYPE, Device>::cal_force(const UnitCell& ucell,
     ModuleBase::matrix forcenl(nat, 3);
     ModuleBase::matrix forcescc(nat, 3);
     ModuleBase::matrix forcepaw(nat, 3);
+    ModuleBase::matrix forceonsite(nat, 3);
 
     // Force due to local ionic potential
     // For PAW, calculated together in paw_cell.calculate_force
@@ -156,13 +158,18 @@ void Forces<FPTYPE, Device>::cal_force(const UnitCell& ucell,
             }
 #endif
         }
+        // DFT+U and DeltaSpin
+        if(PARAM.inp.dft_plus_u || PARAM.inp.sc_mag_switch)
+        {
+            this->cal_force_onsite(forceonsite, wg, wfc_basis, ucell, psi_in);
+        }
     }
 
     // non-linear core correction
     // not relevant for PAW
     if (!PARAM.inp.use_paw)
     {
-        Forces::cal_force_cc(forcecc, rho_basis, chr, locpp->numeric, GlobalC::ucell);
+        Forces::cal_force_cc(forcecc, rho_basis, chr, locpp->numeric, ucell);
     }
     else
     {
@@ -225,7 +232,7 @@ void Forces<FPTYPE, Device>::cal_force(const UnitCell& ucell,
     if (PARAM.inp.imp_sol)
     {
         forcesol.create(this->nat, 3);
-        GlobalC::solvent_model.cal_force_sol(ucell, rho_basis, locpp->vloc, forcesol);
+        solvent.cal_force_sol(ucell, rho_basis, locpp->vloc, forcesol);
         if (PARAM.inp.test_force)
         {
             ModuleIO::print_force(GlobalV::ofs_running, ucell, "IMP_SOL      FORCE (Ry/Bohr)", forcesol);
@@ -315,6 +322,11 @@ void Forces<FPTYPE, Device>::cal_force(const UnitCell& ucell,
                 if (PARAM.inp.imp_sol)
                 {
                     force(iat, ipol) = force(iat, ipol) + forcesol(iat, ipol);
+                }
+
+                if(PARAM.inp.dft_plus_u || PARAM.inp.sc_mag_switch)
+                {
+                    force(iat, ipol) += forceonsite(iat, ipol);
                 }
 
                 sum += force(iat, ipol);
@@ -457,6 +469,14 @@ void Forces<FPTYPE, Device>::cal_force(const UnitCell& ucell,
                                   forcesol,
                                   false);
         }
+        if (PARAM.inp.dft_plus_u || PARAM.inp.sc_mag_switch)
+        {
+            ModuleIO::print_force(GlobalV::ofs_running,
+                                  ucell,
+                                  "ONSITE_PROJ    FORCE (eV/Angstrom)",
+                                  forceonsite,
+                                  false);
+        }
     }
     ModuleIO::print_force(GlobalV::ofs_running, ucell, "TOTAL-FORCE (eV/Angstrom)", force, false);
     ModuleBase::timer::tick("Forces", "cal_force");
@@ -576,21 +596,24 @@ void Forces<FPTYPE, Device>::cal_force_ew(const UnitCell& ucell,
         }
         for (int it = 0; it < ucell.ntype; it++)
         {
-            double dzv;
-            if (PARAM.inp.use_paw)
+            if (ucell.atoms[it].na != 0)
             {
-#ifdef USE_PAW
-                dzv = GlobalC::paw_cell.get_val(it);
-#endif
-            }
-            else
-            {
-                dzv = ucell.atoms[it].ncpp.zv;
-            }
+                double dzv;
+                if (PARAM.inp.use_paw)
+                {
+    #ifdef USE_PAW
+                    dzv = GlobalC::paw_cell.get_val(it);
+    #endif
+                }
+                else
+                {
+                    dzv = ucell.atoms[it].ncpp.zv;
+                }
 
-            for (int ig = igb; ig < ig_end; ++ig)
-            { // accumulate aux
-                aux[ig] += dzv * conj(p_sf->strucFac(it, ig));
+                for (int ig = igb; ig < ig_end; ++ig)
+                { // accumulate aux
+                    aux[ig] += dzv * conj(p_sf->strucFac(it, ig));
+                }
             }
         }
     }
@@ -695,30 +718,33 @@ void Forces<FPTYPE, Device>::cal_force_ew(const UnitCell& ucell,
                 last_it = it;
             }
 
-            const auto ig_loop = [&](int ig_beg, int ig_end) {
-                for (int ig = ig_beg; ig < ig_end; ig++)
-                {
-                    const ModuleBase::Vector3<double> gcar = rho_basis->gcar[ig];
-                    const double arg = ModuleBase::TWO_PI * (gcar * ucell.atoms[it].tau[ia]);
-                    double sinp, cosp;
-                    ModuleBase::libm::sincos(arg, &sinp, &cosp);
-                    double sumnb = -cosp * aux[ig].imag() + sinp * aux[ig].real();
-                    forceion(iat, 0) += gcar[0] * sumnb;
-                    forceion(iat, 1) += gcar[1] * sumnb;
-                    forceion(iat, 2) += gcar[2] * sumnb;
-                }
-            };
+            if (ucell.atoms[it].na != 0)
+            {
+                const auto ig_loop = [&](int ig_beg, int ig_end) {
+                    for (int ig = ig_beg; ig < ig_end; ig++)
+                    {
+                        const ModuleBase::Vector3<double> gcar = rho_basis->gcar[ig];
+                        const double arg = ModuleBase::TWO_PI * (gcar * ucell.atoms[it].tau[ia]);
+                        double sinp, cosp;
+                        ModuleBase::libm::sincos(arg, &sinp, &cosp);
+                        double sumnb = -cosp * aux[ig].imag() + sinp * aux[ig].real();
+                        forceion(iat, 0) += gcar[0] * sumnb;
+                        forceion(iat, 1) += gcar[1] * sumnb;
+                        forceion(iat, 2) += gcar[2] * sumnb;
+                    }
+                };
 
-            // skip ig_gge0 point by separating ig loop into two part
-            ig_loop(0, ig_gap);
-            ig_loop(ig_gap + 1, rho_basis->npw);
+                // skip ig_gge0 point by separating ig loop into two part
+                ig_loop(0, ig_gap);
+                ig_loop(ig_gap + 1, rho_basis->npw);
 
-            forceion(iat, 0) *= it_fact;
-            forceion(iat, 1) *= it_fact;
-            forceion(iat, 2) *= it_fact;
+                forceion(iat, 0) *= it_fact;
+                forceion(iat, 1) *= it_fact;
+                forceion(iat, 2) *= it_fact;
 
-            ++iat;
-            ucell.step_iait(&ia, &it);
+                ++iat;
+                ucell.step_iait(&ia, &it);
+            }
         }
 
         // means that the processor contains G=0 term.
@@ -752,7 +778,7 @@ void Forces<FPTYPE, Device>::cal_force_ew(const UnitCell& ucell,
                 int T2 = 0;
                 while (iat2 < this->nat)
                 {
-                    if (iat1 != iat2)
+                    if (iat1 != iat2 && ucell.atoms[T2].na != 0 && ucell.atoms[T1].na != 0)
                     {
                         ModuleBase::Vector3<double> d_tau
                             = ucell.atoms[T1].tau[I1] - ucell.atoms[T2].tau[I2];

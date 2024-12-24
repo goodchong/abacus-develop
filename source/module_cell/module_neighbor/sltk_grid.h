@@ -109,7 +109,7 @@ class Grid
         return glayerZ_minus;
     }
   private:
-    const int test_grid;
+    int test_grid;
 
     void setMemberVariables(std::ofstream& ofs_in, const UnitCell& ucell);
 

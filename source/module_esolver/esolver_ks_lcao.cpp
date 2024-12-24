@@ -33,6 +33,7 @@
 //--------------temporary----------------------------
 #include "module_base/global_function.h"
 #include "module_cell/module_neighbor/sltk_grid_driver.h"
+#include "module_elecstate/cal_ux.h"
 #include "module_elecstate/module_charge/symmetry_rho.h"
 #include "module_elecstate/occupy.h"
 #include "module_hamilt_lcao/hamilt_lcaodft/LCAO_domain.h" // need divide_HS_in_frag
@@ -40,7 +41,6 @@
 #include "module_hamilt_lcao/module_dftu/dftu.h"
 #include "module_hamilt_pw/hamilt_pwdft/global.h"
 #include "module_io/print_info.h"
-#include "module_elecstate/cal_ux.h"
 
 #include <memory>
 #ifdef __EXX
@@ -65,6 +65,7 @@
 
 // test RDMFT
 #include "module_rdmft/rdmft.h"
+
 #include <iostream>
 
 namespace ModuleESolver
@@ -164,7 +165,7 @@ void ESolver_KS_LCAO<TK, TR>::before_all_runners(UnitCell& ucell, const Input_pa
     // 5) initialize Hamilt in LCAO
     // * allocate H and S matrices according to computational resources
     // * set the 'trace' between local H/S and global H/S
-    LCAO_domain::divide_HS_in_frag(PARAM.globalv.gamma_only_local, ucell , pv, this->kv.get_nks(), orb_);
+    LCAO_domain::divide_HS_in_frag(PARAM.globalv.gamma_only_local, ucell, pv, this->kv.get_nks(), orb_);
 
 #ifdef __EXX
     // 6) initialize exx
@@ -178,12 +179,12 @@ void ESolver_KS_LCAO<TK, TR>::before_all_runners(UnitCell& ucell, const Input_pa
             // initialize 2-center radial tables for EXX-LRI
             if (GlobalC::exx_info.info_ri.real_number)
             {
-                this->exx_lri_double->init(MPI_COMM_WORLD, this->kv, orb_);
+                this->exx_lri_double->init(MPI_COMM_WORLD, ucell, this->kv, orb_);
                 this->exd->exx_before_all_runners(this->kv, ucell, this->pv);
             }
             else
             {
-                this->exx_lri_complex->init(MPI_COMM_WORLD, this->kv, orb_);
+                this->exx_lri_complex->init(MPI_COMM_WORLD, ucell, this->kv, orb_);
                 this->exc->exx_before_all_runners(this->kv, ucell, this->pv);
             }
         }
@@ -193,11 +194,12 @@ void ESolver_KS_LCAO<TK, TR>::before_all_runners(UnitCell& ucell, const Input_pa
     // 7) initialize DFT+U
     if (PARAM.inp.dft_plus_u)
     {
-        GlobalC::dftu.init(ucell, &this->pv, this->kv.get_nks(), orb_);
+        auto* dftu = ModuleDFTU::DFTU::get_instance();
+        dftu->init(ucell, &this->pv, this->kv.get_nks(), &orb_);
     }
 
     // 8) initialize ppcell
-    this->ppcell.init_vloc(ucell,this->pw_rho);
+    this->locpp.init_vloc(ucell, this->pw_rho);
     ModuleBase::GlobalFunc::DONE(GlobalV::ofs_running, "LOCAL POTENTIAL");
 
     // 9) inititlize the charge density
@@ -210,8 +212,9 @@ void ESolver_KS_LCAO<TK, TR>::before_all_runners(UnitCell& ucell, const Input_pa
         this->pelec->pot = new elecstate::Potential(this->pw_rhod,
                                                     this->pw_rho,
                                                     &ucell,
-                                                    &(this->ppcell.vloc),
+                                                    &(this->locpp.vloc),
                                                     &(this->sf),
+                                                    &(this->solvent),
                                                     &(this->pelec->f_en.etxc),
                                                     &(this->pelec->f_en.vtxc));
     }
@@ -256,10 +259,19 @@ void ESolver_KS_LCAO<TK, TR>::before_all_runners(UnitCell& ucell, const Input_pa
     }
 
     // 14) initialize rdmft, added by jghan
-    if( PARAM.inp.rdmft == true )
+    if (PARAM.inp.rdmft == true)
     {
-        rdmft_solver.init( this->GG, this->GK, this->pv, ucell, this->kv, *(this->pelec),
-                                this->orb_, two_center_bundle_, PARAM.inp.dft_functional, PARAM.inp.rdmft_power_alpha);
+        rdmft_solver.init(this->GG,
+                          this->GK,
+                          this->pv,
+                          ucell,
+                          this->gd,
+                          this->kv,
+                          *(this->pelec),
+                          this->orb_,
+                          two_center_bundle_,
+                          PARAM.inp.dft_functional,
+                          PARAM.inp.rdmft_power_alpha);
     }
 
     ModuleBase::timer::tick("ESolver_KS_LCAO", "before_all_runners");
@@ -290,11 +302,12 @@ void ESolver_KS_LCAO<TK, TR>::cal_force(UnitCell& ucell, ModuleBase::matrix& for
 
     Force_Stress_LCAO<TK> fsl(this->RA, ucell.nat);
 
-    fsl.getForceStress(PARAM.inp.cal_force,
+    fsl.getForceStress(ucell,
+                       PARAM.inp.cal_force,
                        PARAM.inp.cal_stress,
                        PARAM.inp.test_force,
                        PARAM.inp.test_stress,
-                       ucell,
+                       this->gd,
                        this->pv,
                        this->pelec,
                        this->psi,
@@ -304,10 +317,11 @@ void ESolver_KS_LCAO<TK, TR>::cal_force(UnitCell& ucell, ModuleBase::matrix& for
                        orb_,
                        force,
                        this->scs,
-                       this->ppcell,
+                       this->locpp,
                        this->sf,
                        this->kv,
                        this->pw_rho,
+                       this->solvent,
 #ifdef __EXX
                        *this->exx_lri_double,
                        *this->exx_lri_complex,
@@ -448,16 +462,17 @@ void ESolver_KS_LCAO<TK, TR>::after_all_runners(UnitCell& ucell)
                                     *this->psi,
                                     ucell,
                                     this->sf,
+                                    this->solvent,
                                     *this->pw_rho,
                                     *this->pw_rhod,
-                                    this->ppcell.vloc,
+                                    this->locpp.vloc,
                                     *this->pelec->charge,
                                     this->GG,
                                     this->GK,
                                     this->kv,
                                     orb_.cutoffs(),
                                     this->pelec->wg,
-                                    GlobalC::GridD
+                                    this->gd
 #ifdef __EXX
                                     ,
                                     this->exx_lri_double ? &this->exx_lri_double->Hexxs : nullptr,
@@ -475,15 +490,16 @@ void ESolver_KS_LCAO<TK, TR>::after_all_runners(UnitCell& ucell)
                                             *this->psi,
                                             ucell,
                                             this->sf,
+                                            this->solvent,
                                             *this->pw_rho,
                                             *this->pw_rhod,
-                                            this->ppcell.vloc,
+                                            this->locpp.vloc,
                                             *this->pelec->charge,
                                             this->GG,
                                             this->GK,
                                             this->kv,
                                             this->pelec->wg,
-                                            GlobalC::GridD,
+                                            this->gd,
                                             orb_.cutoffs(),
                                             this->two_center_bundle_
 #ifdef __EXX
@@ -558,7 +574,7 @@ void ESolver_KS_LCAO<TK, TR>::iter_init(UnitCell& ucell, const int istep, const 
     }
 
     // mohan update 2012-06-05
-    this->pelec->f_en.deband_harris = this->pelec->cal_delta_eband();
+    this->pelec->f_en.deband_harris = this->pelec->cal_delta_eband(ucell);
 
     // mohan move it outside 2011-01-13
     // first need to calculate the weight according to
@@ -623,6 +639,7 @@ void ESolver_KS_LCAO<TK, TR>::iter_init(UnitCell& ucell, const int istep, const 
         if (GlobalC::exx_info.info_ri.real_number)
         {
             this->exd->exx_eachiterinit(istep,
+                                        ucell,
                                         *dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(),
                                         this->kv,
                                         iter);
@@ -630,6 +647,7 @@ void ESolver_KS_LCAO<TK, TR>::iter_init(UnitCell& ucell, const int istep, const 
         else
         {
             this->exc->exx_eachiterinit(istep,
+                                        ucell,
                                         *dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(),
                                         this->kv,
                                         iter);
@@ -644,7 +662,7 @@ void ESolver_KS_LCAO<TK, TR>::iter_init(UnitCell& ucell, const int istep, const 
             GlobalC::dftu.set_dmr(dynamic_cast<elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM());
         }
         // Calculate U and J if Yukawa potential is used
-        GlobalC::dftu.cal_slater_UJ(ucell,this->pelec->charge->rho, this->pw_rho->nrxx);
+        GlobalC::dftu.cal_slater_UJ(ucell, this->pelec->charge->rho, this->pw_rho->nrxx);
     }
 
 #ifdef __DEEPKS
@@ -703,21 +721,21 @@ void ESolver_KS_LCAO<TK, TR>::hamilt2density_single(UnitCell& ucell, int istep, 
     if (PARAM.inp.sc_mag_switch)
     {
         spinconstrain::SpinConstrain<TK>& sc = spinconstrain::SpinConstrain<TK>::getScInstance();
-        if(!sc.mag_converged() && this->drho>0 && this->drho < PARAM.inp.sc_scf_thr)
+        if (!sc.mag_converged() && this->drho > 0 && this->drho < PARAM.inp.sc_scf_thr)
         {
             // optimize lambda to get target magnetic moments, but the lambda is not near target
-            sc.run_lambda_loop(iter-1);
+            sc.run_lambda_loop(iter - 1);
             sc.set_mag_converged(true);
             skip_solve = true;
         }
-        else if(sc.mag_converged())
+        else if (sc.mag_converged())
         {
             // optimize lambda to get target magnetic moments, but the lambda is not near target
-            sc.run_lambda_loop(iter-1);
+            sc.run_lambda_loop(iter - 1);
             skip_solve = true;
         }
     }
-    if(!skip_solve)
+    if (!skip_solve)
     {
         hsolver::HSolverLCAO<TK> hsolver_lcao_obj(&(this->pv), PARAM.inp.ks_solver);
         hsolver_lcao_obj.solve(this->p_hamilt, this->psi[0], this->pelec, skip_charge);
@@ -746,7 +764,7 @@ void ESolver_KS_LCAO<TK, TR>::hamilt2density_single(UnitCell& ucell, int istep, 
     }
 
     // 12) calculate delta energy
-    this->pelec->f_en.deband = this->pelec->cal_delta_eband();
+    this->pelec->f_en.deband = this->pelec->cal_delta_eband(ucell);
 }
 
 //------------------------------------------------------------------------------
@@ -769,7 +787,6 @@ void ESolver_KS_LCAO<TK, TR>::update_pot(UnitCell& ucell, const int istep, const
     {
         this->pelec->cal_converged();
     }
-
 }
 
 //------------------------------------------------------------------------------
@@ -797,9 +814,14 @@ void ESolver_KS_LCAO<TK, TR>::iter_finish(UnitCell& ucell, const int istep, int&
             {
                 const std::vector<std::vector<TK>>& tmp_dm
                     = dynamic_cast<elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM()->get_DMK_vector();
-                ModuleDFTU::dftu_cal_occup_m(iter, ucell,tmp_dm, this->kv, this->p_chgmix->get_mixing_beta(), this->p_hamilt);
+                ModuleDFTU::dftu_cal_occup_m(iter,
+                                             ucell,
+                                             tmp_dm,
+                                             this->kv,
+                                             this->p_chgmix->get_mixing_beta(),
+                                             this->p_hamilt);
             }
-            GlobalC::dftu.cal_energy_correction(ucell,istep);
+            GlobalC::dftu.cal_energy_correction(ucell, istep);
         }
         GlobalC::dftu.output(ucell);
     }
@@ -900,12 +922,14 @@ template <typename TK, typename TR>
 void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
 {
     ModuleBase::TITLE("ESolver_KS_LCAO", "after_scf");
+    ModuleBase::timer::tick("ESolver_KS_LCAO", "after_scf");
+
     // 1) calculate the kinetic energy density tau, sunliang 2024-09-18
     if (PARAM.inp.out_elf[0] > 0)
     {
         this->pelec->cal_tau(*(this->psi));
     }
-    
+
     //! 2) call after_scf() of ESolver_KS
     ESolver_KS<TK>::after_scf(ucell, istep);
 
@@ -958,7 +982,7 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
     // 6) write Hamiltonian and Overlap matrix
     for (int ik = 0; ik < this->kv.get_nks(); ++ik)
     {
-        if (PARAM.inp.out_mat_hs[0] || PARAM.inp.deepks_v_delta)
+        if (PARAM.inp.out_mat_hs[0])
         {
             this->p_hamilt->updateHk(ik);
         }
@@ -975,34 +999,28 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
             if (PARAM.inp.out_mat_hs[0])
             {
                 ModuleIO::save_mat(istep,
-                                    h_mat.p,
-                                    PARAM.globalv.nlocal,
-                                    bit,
-                                    PARAM.inp.out_mat_hs[1],
-                                    1,
-                                    PARAM.inp.out_app_flag,
-                                    "H",
-                                    "data-" + std::to_string(ik),
-                                    this->pv,
-                                    GlobalV::DRANK);
+                                   h_mat.p,
+                                   PARAM.globalv.nlocal,
+                                   bit,
+                                   PARAM.inp.out_mat_hs[1],
+                                   1,
+                                   PARAM.inp.out_app_flag,
+                                   "H",
+                                   "data-" + std::to_string(ik),
+                                   this->pv,
+                                   GlobalV::DRANK);
                 ModuleIO::save_mat(istep,
-                                    s_mat.p,
-                                    PARAM.globalv.nlocal,
-                                    bit,
-                                    PARAM.inp.out_mat_hs[1],
-                                    1,
-                                    PARAM.inp.out_app_flag,
-                                    "S",
-                                    "data-" + std::to_string(ik),
-                                    this->pv,
-                                    GlobalV::DRANK);
+                                   s_mat.p,
+                                   PARAM.globalv.nlocal,
+                                   bit,
+                                   PARAM.inp.out_mat_hs[1],
+                                   1,
+                                   PARAM.inp.out_app_flag,
+                                   "S",
+                                   "data-" + std::to_string(ik),
+                                   this->pv,
+                                   GlobalV::DRANK);
             }
-#ifdef __DEEPKS
-            if (PARAM.inp.deepks_out_labels && PARAM.inp.deepks_v_delta)
-            {
-                DeePKS_domain::save_h_mat(h_mat.p, this->pv.nloc);
-            }
-#endif
         }
     }
 
@@ -1020,50 +1038,54 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
 
     //! 8) Write DeePKS information
 #ifdef __DEEPKS
-    std::shared_ptr<LCAO_Deepks> ld_shared_ptr(&GlobalC::ld, [](LCAO_Deepks*) {});
-    LCAO_Deepks_Interface LDI = LCAO_Deepks_Interface(ld_shared_ptr);
-    ModuleBase::timer::tick("ESolver_KS_LCAO", "out_deepks_labels");
-    LDI.out_deepks_labels(this->pelec->f_en.etot,
-                          this->pelec->klist->get_nks(),
-                          ucell.nat,
-                          PARAM.globalv.nlocal,
-                          this->pelec->ekb,
-                          this->pelec->klist->kvec_d,
-                          ucell,
-                          orb_,
-                          GlobalC::GridD,
-                          &(this->pv),
-                          *(this->psi),
-                          dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(),
-                          PARAM.inp.deepks_v_delta);
+    if (this->psi != nullptr && (istep % PARAM.inp.out_interval == 0))
+    {
+        hamilt::HamiltLCAO<TK, TR>* p_ham_deepks = dynamic_cast<hamilt::HamiltLCAO<TK, TR>*>(this->p_hamilt);
+        std::shared_ptr<LCAO_Deepks> ld_shared_ptr(&GlobalC::ld, [](LCAO_Deepks*) {});
+        LCAO_Deepks_Interface<TK, TR> LDI(ld_shared_ptr);
 
-    ModuleBase::timer::tick("ESolver_KS_LCAO", "out_deepks_labels");
+        ModuleBase::timer::tick("ESolver_KS_LCAO", "out_deepks_labels");
+        LDI.out_deepks_labels(this->pelec->f_en.etot,
+                              this->pelec->klist->get_nks(),
+                              ucell.nat,
+                              PARAM.globalv.nlocal,
+                              this->pelec->ekb,
+                              this->pelec->klist->kvec_d,
+                              ucell,
+                              orb_,
+                              this->gd,
+                              &(this->pv),
+                              *(this->psi),
+                              dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(),
+                              p_ham_deepks);
+
+        ModuleBase::timer::tick("ESolver_KS_LCAO", "out_deepks_labels");
+    }
 #endif
 
     //! 9) Perform RDMFT calculations
     /******** test RDMFT *********/
-    if ( PARAM.inp.rdmft == true ) // rdmft, added by jghan, 2024-10-17
+    if (PARAM.inp.rdmft == true) // rdmft, added by jghan, 2024-10-17
     {
         ModuleBase::matrix occ_number_ks(this->pelec->wg);
-        for(int ik=0; ik < occ_number_ks.nr; ++ik) 
-        { 
-            for(int inb=0; inb < occ_number_ks.nc; ++inb)
+        for (int ik = 0; ik < occ_number_ks.nr; ++ik)
+        {
+            for (int inb = 0; inb < occ_number_ks.nc; ++inb)
             {
                 occ_number_ks(ik, inb) /= this->kv.wk[ik];
             }
         }
-        this->rdmft_solver.update_elec(occ_number_ks, *(this->psi));
+        this->rdmft_solver.update_elec(ucell, occ_number_ks, *(this->psi));
 
-        //! initialize the gradients of Etotal with respect to occupation numbers and wfc, 
-        //! and set all elements to 0. 
+        //! initialize the gradients of Etotal with respect to occupation numbers and wfc,
+        //! and set all elements to 0.
         ModuleBase::matrix dE_dOccNum(this->pelec->wg.nr, this->pelec->wg.nc, true);
-        psi::Psi<TK> dE_dWfc(this->psi->get_nk(), this->psi->get_nbands(), this->psi->get_nbasis()); 
+        psi::Psi<TK> dE_dWfc(this->psi->get_nk(), this->psi->get_nbands(), this->psi->get_nbasis());
         dE_dWfc.zero_out();
 
         double Etotal_RDMFT = this->rdmft_solver.run(dE_dOccNum, dE_dWfc);
     }
     /******** test RDMFT *********/
-
 
 #ifdef __EXX
     // 10) Write RPA information.
@@ -1074,10 +1096,11 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
         RPA_LRI<TK, double> rpa_lri_double(GlobalC::exx_info.info_ri);
         rpa_lri_double.cal_postSCF_exx(*dynamic_cast<const elecstate::ElecStateLCAO<TK>*>(this->pelec)->get_DM(),
                                        MPI_COMM_WORLD,
+                                       ucell,
                                        this->kv,
                                        orb_);
         rpa_lri_double.init(MPI_COMM_WORLD, this->kv, orb_.cutoffs());
-        rpa_lri_double.out_for_RPA(this->pv, *(this->psi), this->pelec);
+        rpa_lri_double.out_for_RPA(ucell, this->pv, *(this->psi), this->pelec);
     }
 #endif
 
@@ -1130,19 +1153,28 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
                                     two_center_bundle_,
                                     orb_,
                                     ucell,
-                                    GlobalC::GridD,
+                                    this->gd,
                                     this->kv,
                                     this->p_hamilt);
-        
+
         //! Perform Mulliken charge analysis
         if (PARAM.inp.out_mul)
         {
-            ModuleIO::cal_mag(&(this->pv), this->p_hamilt, this->kv, this->pelec, ucell, istep, true);
+            ModuleIO::cal_mag(&(this->pv),
+                              this->p_hamilt,
+                              this->kv,
+                              this->pelec,
+                              this->two_center_bundle_,
+                              this->orb_,
+                              ucell,
+                              this->gd,
+                              istep,
+                              true);
         }
     }
 
     //! 14) Print out atomic magnetization only when 'spin_constraint' is on.
-    if (PARAM.inp.sc_mag_switch) 
+    if (PARAM.inp.sc_mag_switch)
     {
         spinconstrain::SpinConstrain<TK>& sc = spinconstrain::SpinConstrain<TK>::getScInstance();
         sc.cal_mi_lcao(istep);
@@ -1150,7 +1182,7 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
         sc.print_Mag_Force(GlobalV::ofs_running);
     }
 
-    //! 15) Clean up RA. 
+    //! 15) Clean up RA.
     //! this should be last function and put it in the end, mohan request 2024-11-28
     if (!PARAM.inp.cal_force && !PARAM.inp.cal_stress)
     {
@@ -1183,7 +1215,7 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
                                                                     &hR,
                                                                     &ucell,
                                                                     orb_.cutoffs(),
-                                                                    &GlobalC::GridD,
+                                                                    &this->gd,
                                                                     two_center_bundle_.kinetic_orb.get());
 
         const int nspin_k = (PARAM.inp.nspin == 2 ? 2 : 1);
@@ -1220,14 +1252,14 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
                                              PARAM.inp.out_wannier_wvfn_formatted,
                                              PARAM.inp.nnkpfile,
                                              PARAM.inp.wannier_spin);
-
+            myWannier.set_tpiba_omega(ucell.tpiba, ucell.omega);
             myWannier.calculate(ucell,
-                                this->pelec->ekb, 
-                                this->pw_wfc, 
-                                this->pw_big, 
-                                this->sf, 
-                                this->kv, 
-                                this->psi, 
+                                this->pelec->ekb,
+                                this->pw_wfc,
+                                this->pw_big,
+                                this->sf,
+                                this->kv,
+                                this->psi,
                                 &(this->pv));
         }
         else if (PARAM.inp.wannier_method == 2)
@@ -1241,27 +1273,25 @@ void ESolver_KS_LCAO<TK, TR>::after_scf(UnitCell& ucell, const int istep)
                                        PARAM.inp.wannier_spin,
                                        orb_);
 
-            myWannier.calculate(ucell,this->pelec->ekb, this->kv, *(this->psi), &(this->pv));
+            myWannier.calculate(ucell, this->gd, this->pelec->ekb, this->kv, *(this->psi), &(this->pv));
         }
         std::cout << FmtCore::format(" >> Finish %s.\n * * * * * *\n", "Wave function to Wannier90");
     }
 
     //! 19) berry phase calculations, added by jingan
-    if (PARAM.inp.calculation == "nscf" && 
-        berryphase::berry_phase_flag && 
-        ModuleSymmetry::Symmetry::symm_flag != 1)
+    if (PARAM.inp.calculation == "nscf" && berryphase::berry_phase_flag && ModuleSymmetry::Symmetry::symm_flag != 1)
     {
         std::cout << FmtCore::format("\n * * * * * *\n << Start %s.\n", "Berry phase calculation");
         berryphase bp(&(this->pv));
-        bp.lcao_init(ucell,
-                     this->kv,
-                     this->GridT,
-                     orb_); // additional step before calling
-                            // macroscopic_polarization (why capitalize
-                            // the function name?)
-        bp.Macroscopic_polarization(ucell,this->pw_wfc->npwk_max, this->psi, this->pw_rho, this->pw_wfc, this->kv);
+        bp.lcao_init(ucell, this->gd, this->kv, this->GridT, orb_);
+        // additional step before calling
+        // macroscopic_polarization (why capitalize
+        // the function name?)
+        bp.Macroscopic_polarization(ucell, this->pw_wfc->npwk_max, this->psi, this->pw_rho, this->pw_wfc, this->kv);
         std::cout << FmtCore::format(" >> Finish %s.\n * * * * * *\n", "Berry phase calculation");
     }
+
+    ModuleBase::timer::tick("ESolver_KS_LCAO", "after_scf");
 }
 
 template class ESolver_KS_LCAO<double, double>;

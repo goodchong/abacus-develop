@@ -86,6 +86,7 @@ struct Input_para
     int nspin = 1;                          ///< LDA ; LSDA ; non-linear spin
     int pw_diag_nmax = 50;
     double pw_diag_thr = 0.01; ///< used in cg method
+    bool diago_smooth_ethr = false; ///< smooth ethr for iter methods
     int pw_diag_ndim = 4;      ///< dimension of workspace for Davidson diagonalization
     int diago_cg_prec = 1;     ///< mohan add 2012-03-31
 
@@ -118,6 +119,7 @@ struct Input_para
     bool scf_os_stop = false;  ///< whether to stop scf when oscillation is detected
     double scf_os_thr = -0.01;  ///< drho threshold for oscillation
     int scf_os_ndim = 0;       ///< number of old iterations used for oscillation detection
+    int sc_os_ndim = 5;       ///< number of old iterations used for oscillation detection in Spin-Constrained DFT
 
     bool lspinorb = false;   ///< consider the spin-orbit interaction
     bool noncolin = false;   ///< using non-collinear-spin
