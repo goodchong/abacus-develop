@@ -68,7 +68,7 @@ class Grid_Driver : public Grid
     void Find_atom(const UnitCell& ucell,
                    const int ntype,
                    const int nnumber,
-                   AdjacentAtomInfo* adjs = nullptr);
+                   AdjacentAtomInfo* adjs = nullptr) const;
 
     // cartesian_posi and ucell is deprecated 20241204 zhanghaochong
     // this interface is deprecated, please use Find_atom above
@@ -76,7 +76,7 @@ class Grid_Driver : public Grid
                    const ModuleBase::Vector3<double>& cartesian_posi,
                    const int& ntype,
                    const int& nnumber,
-                   AdjacentAtomInfo* adjs = nullptr);
+                   AdjacentAtomInfo* adjs = nullptr) const;
     //==========================================================
     // EXPLAIN : The adjacent information for the input
     // cartesian_pos
