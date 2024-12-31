@@ -79,7 +79,8 @@ void ReadInput::item_system()
                                                 "get_S",
                                                 "get_wf",
                                                 "get_pchg",
-                                                "gen_bessel"};
+                                                "gen_bessel",
+                                                "get_hs"};
             if (std::find(callist.begin(), callist.end(), calculation) == callist.end())
             {
                 const std::string warningstr = nofound_str(callist, "calculation");
@@ -140,7 +141,8 @@ void ReadInput::item_system()
             if (para.input.symmetry == "default")
             {
                 if (para.input.gamma_only || para.input.calculation == "nscf" || para.input.calculation == "get_S"
-                    || para.input.calculation == "get_pchg" || para.input.calculation == "get_wf")
+                    || para.input.calculation == "get_pchg" || para.input.calculation == "get_wf" 
+                    || para.input.calculation == "get_hs")
                 {
                     para.input.symmetry = "0"; // if md or exx, symmetry will be
                                                // force-set to 0 or -1 later

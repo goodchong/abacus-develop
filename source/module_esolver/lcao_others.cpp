@@ -370,6 +370,24 @@ void ESolver_KS_LCAO<TK, TR>::others(UnitCell& ucell, const int istep)
         }
         std::cout << FmtCore::format(" >> Finish %s.\n * * * * * *\n", "getting wave function");
     }
+    else if(cal_type == "get_hs")
+    {
+        this->p_hamilt->updateHk(0);
+        ModuleIO::output_mat_sparse(PARAM.inp.out_mat_hs2,
+                                    PARAM.inp.out_mat_dh,
+                                    PARAM.inp.out_mat_t,
+                                    PARAM.inp.out_mat_r,
+                                    istep,
+                                    this->pelec->pot->get_effective_v(),
+                                    this->pv,
+                                    this->GK,
+                                    two_center_bundle_,
+                                    orb_,
+                                    ucell,
+                                    this->gd,
+                                    this->kv,
+                                    this->p_hamilt);
+    }
     else
     {
         ModuleBase::WARNING_QUIT("ESolver_KS_LCAO<TK, TR>::others", "CALCULATION type not supported");

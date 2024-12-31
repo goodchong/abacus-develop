@@ -267,10 +267,16 @@ void ReadInput::item_output()
         Input_Item item("out_mat_hs2");
         item.annotation = "output H(R) and S(R) matrix";
         read_sync_bool(input.out_mat_hs2);
-        item.check_value = [](const Input_Item& item, const Parameter& para) {
+        item.check_value = [](const Input_Item& item,const Parameter& para) {
             if (para.input.out_mat_r && para.sys.gamma_only_local)
             {
                 ModuleBase::WARNING_QUIT("ReadInput", "out_mat_r is not available for gamma only calculations");
+            }
+        };
+        item.reset_value = [](const Input_Item& item, Parameter& para) {
+            if (para.input.calculation == "get_hs")
+            {
+                para.input.out_mat_hs2 = true;
             }
         };
         this->add_item(item);
