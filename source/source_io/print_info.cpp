@@ -20,7 +20,8 @@ void print_parameters(
 			|| inp.calculation=="nscf"
 			|| inp.calculation=="get_pchg" 
 			|| inp.calculation=="get_wf" 
-			|| inp.calculation=="md")
+			|| inp.calculation=="md"
+            || PARAM.inp.calculation=="get_hs")
 	{
 		std::cout << " ---------------------------------------------------------" << std::endl;
 		if(inp.calculation=="scf")

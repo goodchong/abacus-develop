@@ -80,7 +80,8 @@ void ReadInput::item_system()
                                                 "gen_bessel",
                                                 "gen_opt_abfs",
                                                 "test_memory",
-                                                "test_neighbour"};
+                                                "test_neighbour",
+                                                "get_hs"};
             if (std::find(callist.begin(), callist.end(), calculation) == callist.end())
             {
                 const std::string warningstr = nofound_str(callist, "calculation");
@@ -140,8 +141,10 @@ void ReadInput::item_system()
         item.reset_value = [](const Input_Item& item, Parameter& para) {
             if (para.input.symmetry == "default")
             {
-                if (para.input.gamma_only || para.input.calculation == "nscf" || para.input.calculation == "get_s"
-                    || para.input.calculation == "get_pchg" || para.input.calculation == "get_wf")
+                if (para.input.gamma_only || para.input.calculation == "nscf" 
+                    || para.input.calculation == "get_s"
+                    || para.input.calculation == "get_pchg" || para.input.calculation == "get_wf" 
+                    || para.input.calculation == "get_hs")
                 {
                     para.input.symmetry = "0"; // if md or exx, symmetry will be
                                                // force-set to 0 or -1 later
