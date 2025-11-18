@@ -19,7 +19,6 @@
 #include "source_hsolver/hsolver_lcao.h"
 #include "source_io/berryphase.h"
 #include "source_io/restart.h"
-#include "source_md/md_func.h"
 #include "source_relax/bfgs_basic.h"
 #include "source_relax/ions_move_basic.h"
 #include "source_relax/ions_move_cg.h"

@@ -5,7 +5,6 @@
 #include "source_io/module_parameter/parameter.h"
 #include "source_io/para_json.h"
 #include "source_io/print_info.h"
-#include "source_md/run_md.h"
 #include "source_base/global_variable.h"
 #include "source_base/module_device/device.h"
 #include "source_base/module_device/memory_op.h"
@@ -74,11 +73,7 @@ void Driver::driver_run()
     const std::string cal = PARAM.inp.calculation;
 
     //! 4: different types of calculations
-    if (cal == "md")
-    {
-        Run_MD::md_line(ucell, p_esolver, PARAM);
-    }
-    else if (cal == "scf" || cal == "relax" || cal == "cell-relax" || cal == "nscf")
+    if (cal == "scf" || cal == "relax" || cal == "cell-relax" || cal == "nscf")
     {
         Relax_Driver rl_driver;
         rl_driver.relax_driver(p_esolver, ucell, PARAM.inp);

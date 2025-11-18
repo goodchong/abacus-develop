@@ -742,7 +742,6 @@ target_link_libraries(
   parameter
   cell
   symmetry
-  md
   planewave
   surchem
   neighbor

@@ -41,7 +41,6 @@
 #include "source_estate/module_pot/gatefield.h"
 #include "source_hsolver/hsolver_lcao.h"
 #include "source_hsolver/hsolver_pw.h"
-#include "source_md/md_func.h"
 
 #include "source_lcao/module_dftu/dftu.h" // mohan add 20251107
 

@@ -23,6 +23,7 @@
 #include "source_base/formatter.h"
 #include "source_estate/elecstate_lcao.h"
 #include "source_estate/module_dm/cal_dm_psi.h"
+#include "source_lcao/module_dftu/dftu.h" // mohan add 20251107
 
 #ifdef __EXX
 #include "source_io/restart_exx_csr.h"
@@ -312,6 +313,7 @@ void ESolver_KS_LCAO<TK, TR>::others(UnitCell& ucell, const int istep)
     else if(cal_type == "get_hs")
     {
         this->p_hamilt->updateHk(0);
+        Plus_U* p_dftu = NULL;   // TODO  暂时先编译起来。
         ModuleIO::output_mat_sparse(PARAM.inp.out_mat_hs2,
                                     PARAM.inp.out_mat_dh,
                                     PARAM.inp.out_mat_ds,
@@ -325,7 +327,8 @@ void ESolver_KS_LCAO<TK, TR>::others(UnitCell& ucell, const int istep)
                                     ucell,
                                     this->gd,
                                     this->kv,
-                                    this->p_hamilt);
+                                    this->p_hamilt,
+                                    p_dftu);
     }
 
     else
