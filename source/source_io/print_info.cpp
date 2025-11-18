@@ -21,7 +21,7 @@ void print_parameters(
 			|| inp.calculation=="get_pchg" 
 			|| inp.calculation=="get_wf" 
 			|| inp.calculation=="md"
-            || PARAM.inp.calculation=="get_hs")
+            || inp.calculation=="get_hs")
 	{
 		std::cout << " ---------------------------------------------------------" << std::endl;
 		if(inp.calculation=="scf")

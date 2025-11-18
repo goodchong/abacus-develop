@@ -88,7 +88,7 @@ void Driver::driver_run()
         p_esolver->runner(ucell, 0);
     }
     else if (cal == "get_pchg" || cal == "get_wf" || cal == "gen_bessel" || cal == "gen_opt_abfs" || 
-             cal == "test_memory" || cal == "test_neighbour")
+             cal == "test_memory" || cal == "test_neighbour" || cal == "get_hs")
     {
         //! supported "other" functions:
         //! get_pchg(LCAO),

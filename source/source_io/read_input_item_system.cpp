@@ -62,7 +62,7 @@ void ReadInput::item_system()
     }
     {
         Input_Item item("calculation");
-        item.annotation = "scf; relax; md; cell-relax; nscf; get_s; get_wf; get_pchg; gen_bessel; gen_opt_abfs; test_memory; test_neighbour";
+        item.annotation = "scf; relax; md; cell-relax; nscf; get_s; get_wf; get_pchg; gen_bessel; gen_opt_abfs; test_memory; test_neighbour; get_hs";
         item.read_value = [](const Input_Item& item, Parameter& para) {
             para.input.calculation = strvalue;
             std::string& calculation = para.input.calculation;
