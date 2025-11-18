@@ -1,7 +1,7 @@
 INPUT_PARAMETERS
 #Parameters (1.General)
 suffix			autotest
-calculation     scf
+calculation     get_hs
 
 #nbands			8
 symmetry		1
