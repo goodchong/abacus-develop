@@ -31,7 +31,7 @@ class Mixing
      */
     virtual void init_mixing_data(Mixing_Data& mdata, const int& length, const size_t& type_size) const
     {
-        mdata.resize(data_ndim, length, type_size);
+        //mdata.resize(data_ndim, length, type_size);
     }
 
     /**

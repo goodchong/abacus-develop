@@ -34,7 +34,7 @@ DensityMatrix<TK, TR>::DensityMatrix(const Parallel_Orbitals* paraV_in, const in
     this->_DMK.resize(nks);
     for (int ik = 0; ik < nks; ik++)
     {
-        this->_DMK[ik].resize(this->_paraV->get_row_size() * this->_paraV->get_col_size());
+        //this->_DMK[ik].resize(this->_paraV->get_row_size() * this->_paraV->get_col_size());
     }
     ModuleBase::Memory::record("DensityMatrix::DMK", this->_DMK.size() * this->_DMK[0].size() * sizeof(TK));
 }

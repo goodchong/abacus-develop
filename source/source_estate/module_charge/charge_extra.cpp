@@ -57,9 +57,9 @@ void Charge_Extra::Init_CE(const int& nspin, const int& natom, const int& nrxx, 
         delta_rho3.resize(this->nspin);
         for (int is = 0; is < this->nspin; is++)
         {
-            delta_rho1[is].resize(nrxx, 0.0);
-            delta_rho2[is].resize(nrxx, 0.0);
-            delta_rho3[is].resize(nrxx, 0.0);
+            // delta_rho1[is].resize(nrxx, 0.0);
+            // delta_rho2[is].resize(nrxx, 0.0);
+            // delta_rho3[is].resize(nrxx, 0.0);
         }
     }
 

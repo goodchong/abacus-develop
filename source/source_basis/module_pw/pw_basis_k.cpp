@@ -234,7 +234,7 @@ void PW_Basis_K::setuptransform()
                                  this->gamma_only,
                                  this->xprime);
     }
-    this->fft_bundle.setupFFT();
+    //this->fft_bundle.setupFFT();
     ModuleBase::timer::tick(this->classname, "setuptransform");
 }
 

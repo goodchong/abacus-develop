@@ -499,7 +499,7 @@ bool unitcell::read_atom_positions(UnitCell& ucell,
 
         // Start Autoset magnetization
         // defaultly set a finite magnetization if magnetization is not specified
-        int autoset_mag = 1;
+        int autoset_mag = 0;
         for (int it = 0;it < ntype; it++)
         {
             for (int ia = 0;ia < ucell.atoms[it].na; ia++)

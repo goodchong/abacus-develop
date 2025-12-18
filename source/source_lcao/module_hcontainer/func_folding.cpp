@@ -69,7 +69,7 @@ void folding_HR(const hamilt::HContainer<TR>& hR,
             {
                 for(int irow = 0; irow < row_size; ++irow)
                 {
-                    hk_mat[icol * hk_ld + irow] += hk_mat_tmp[irow * col_size + icol];
+                    //hk_mat[icol * hk_ld + irow] += hk_mat_tmp[irow * col_size + icol];
                 }
             }
         }
