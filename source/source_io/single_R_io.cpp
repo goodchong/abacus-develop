@@ -256,45 +256,60 @@ void ModuleIO::output_single_R_non_reduce_binary(std::ofstream& ofs,
 {
     ModuleBase::timer::tick("ModuleIO", "output_single_R");
     const int n = PARAM.globalv.nlocal;
-    std::vector<T> values;
-    std::vector<int> col_indices;
-    std::vector<int> indptr;
-    indptr.reserve(n + 1);
-    indptr.push_back(0);
 
+    // Pre-compute per-row data
+    std::vector<std::vector<T>> row_values(n);
+    std::vector<std::vector<int>> row_cols(n);
+
+    #pragma omp parallel for schedule(static)
     for (int row = 0; row < n; ++row)
     {
-        if (pv.global2local_row(row) < 0)
-        {
-            indptr.push_back(indptr.back());
-            continue;
-        }
+        if (pv.global2local_row(row) < 0) continue;
 
         auto it = XR.find(static_cast<size_t>(row));
-        if (it == XR.end())
-        {
-            indptr.push_back(indptr.back());
-            continue;
-        }
+        if (it == XR.end()) continue;
 
         const auto& inner = it->second;
+        // Reserve space to avoid reallocations
+        row_values[row].reserve(inner.size());
+        row_cols[row].reserve(inner.size());
+
         for (const auto& kv : inner)
         {
             if (std::abs(kv.second) > sparse_threshold)
             {
-                values.push_back(kv.second);
-                col_indices.push_back(static_cast<int>(kv.first));
+                row_values[row].push_back(kv.second);
+                row_cols[row].push_back(static_cast<int>(kv.first));
             }
         }
-        indptr.push_back(static_cast<int>(values.size()));
     }
-    // write values
+
+    // Build indptr and flatten data
+    std::vector<int> indptr(n + 1, 0);
+    size_t total_nnz = 0;
+    for (int row = 0; row < n; ++row)
+    {
+        total_nnz += row_values[row].size();
+        indptr[row + 1] = indptr[row] + static_cast<int>(row_values[row].size());
+    }
+
+    // Flatten values and col_indices
+    std::vector<T> values;
+    std::vector<int> col_indices;
+    values.reserve(total_nnz);
+    col_indices.reserve(total_nnz);
+
+    for (int row = 0; row < n; ++row)
+    {
+        values.insert(values.end(), row_values[row].begin(), row_values[row].end());
+        col_indices.insert(col_indices.end(), row_cols[row].begin(), row_cols[row].end());
+    }
+
+    // Write in CSR format: values, col_indices, indptr
     ofs.write(reinterpret_cast<char*>(values.data()),
               static_cast<std::streamsize>(values.size() * sizeof(T)));
-    // write col_indices
     ofs.write(reinterpret_cast<char*>(col_indices.data()),
               static_cast<std::streamsize>(col_indices.size() * sizeof(int)));
-    // write indptr
     ofs.write(reinterpret_cast<char*>(indptr.data()),
               static_cast<std::streamsize>(indptr.size() * sizeof(int)));
     ModuleBase::timer::tick("ModuleIO", "output_single_R");

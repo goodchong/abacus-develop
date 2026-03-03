@@ -6,7 +6,7 @@
 namespace ModuleIO
 {
 template <typename T>
-void output_mat_sparse(const bool& out_mat_hsR,
+void output_mat_sparse(const int& out_mat_hsR,
                        const bool& out_mat_dh,
                        const bool& out_mat_ds,
                        const bool& out_mat_t,
@@ -24,16 +24,22 @@ void output_mat_sparse(const bool& out_mat_hsR,
 {
     LCAO_HS_Arrays HS_Arrays; // store sparse arrays
 
+    const bool binary = (out_mat_hsR == 2);
+
     //! generate a file containing the Hamiltonian and S(overlap) matrices
     if (out_mat_hsR)
     {
-        output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham);
+#ifdef __EXX
+        output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham, nullptr, nullptr, "srs1_nao.csr", "hrs1_nao.csr", "hrs2_nao.csr", binary);
+#else
+        output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham, "srs1_nao.csr", "hrs1_nao.csr", "hrs2_nao.csr", binary);
+#endif
     }
 
     //! generate a file containing the kinetic energy matrix
     if (out_mat_t)
     {
-        output_TR(istep, ucell, pv, HS_Arrays, grid, two_center_bundle, orb);
+        output_TR(istep, ucell, pv, HS_Arrays, grid, two_center_bundle, orb, "trs1_nao.csr", binary);
     }
 
     //! generate a file containing the derivatives of the Hamiltonian matrix (in Ry/Bohr)
@@ -47,7 +53,8 @@ void output_mat_sparse(const bool& out_mat_hsR,
                    grid, // mohan add 2024-04-06
                    two_center_bundle,
                    orb,
-                   kv); // LiuXh add 2019-07-15
+                   kv,
+                   binary); // LiuXh add 2019-07-15
     }
     //! generate a file containing the derivatives of the overlap matrix (in Ry/Bohr)
     if (out_mat_ds)
@@ -59,7 +66,8 @@ void output_mat_sparse(const bool& out_mat_hsR,
                    grid, // mohan add 2024-04-06
                    two_center_bundle,
                    orb,
-                   kv);
+                   kv,
+                   binary);
     }
 
     // add by jingan for out r_R matrix 2019.8.14
@@ -80,7 +88,7 @@ void output_mat_sparse(const bool& out_mat_hsR,
     return;
 }
 
-template void output_mat_sparse<double>(const bool& out_mat_hsR,
+template void output_mat_sparse<double>(const int& out_mat_hsR,
                                         const bool& out_mat_dh,
                                         const bool& out_mat_ds,
                                         const bool& out_mat_t,
@@ -96,7 +104,7 @@ template void output_mat_sparse<double>(const bool& out_mat_hsR,
 										hamilt::Hamilt<double>* p_ham,
 										Plus_U* p_dftu);
 
-template void output_mat_sparse<std::complex<double>>(const bool& out_mat_hsR,
+template void output_mat_sparse<std::complex<double>>(const int& out_mat_hsR,
                                                       const bool& out_mat_dh,
                                                       const bool& out_mat_ds,
                                                       const bool& out_mat_t,

@@ -744,13 +744,14 @@ void ModuleIO::save_sparse(
     if (!reduce || GlobalV::DRANK == 0) {
         if (binary) {
             int nlocal = PARAM.globalv.nlocal;
+            int step_val = std::max(istep, 0);
             if (PARAM.inp.calculation == "md" && PARAM.inp.out_app_flag
                 && istep) {
                 ofs.open(sss.str().c_str(), std::ios::binary | std::ios::app);
             } else {
                 ofs.open(sss.str().c_str(), std::ios::binary);
             }
-            ofs.write(reinterpret_cast<char*>(0), sizeof(int));
+            ofs.write(reinterpret_cast<char*>(&step_val), sizeof(int));
             ofs.write(reinterpret_cast<char*>(&nlocal), sizeof(int));
             ofs.write(reinterpret_cast<char*>(&output_R_number), sizeof(int));
         } else {
