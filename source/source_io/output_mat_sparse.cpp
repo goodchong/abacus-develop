@@ -29,11 +29,19 @@ void output_mat_sparse(const int& out_mat_hsR,
     //! generate a file containing the Hamiltonian and S(overlap) matrices
     if (out_mat_hsR)
     {
+        if (out_mat_hsR <= 2)
+        {
 #ifdef __EXX
-        output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham, nullptr, nullptr, "srs1_nao.csr", "hrs1_nao.csr", "hrs2_nao.csr", binary);
+            output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham, nullptr, nullptr, "srs1_nao.csr", "hrs1_nao.csr", "hrs2_nao.csr", binary);
 #else
-        output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham, "srs1_nao.csr", "hrs1_nao.csr", "hrs2_nao.csr", binary);
+            output_HSR(ucell, istep, pv, HS_Arrays, grid, kv, *p_dftu, p_ham, "srs1_nao.csr", "hrs1_nao.csr", "hrs2_nao.csr", binary);
 #endif
+        }
+        else
+        {
+            const bool block_binary = (out_mat_hsR == 4);
+            output_HSR_block(istep, pv, p_ham, "srs_block", "hrs_block_up", "hrs_block_down", block_binary);
+        }
     }
 
     //! generate a file containing the kinetic energy matrix

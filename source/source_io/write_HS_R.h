@@ -31,8 +31,16 @@ void output_HSR(const UnitCell& ucell,
                 const bool& binary = false,
                 const double& sparse_threshold = 1e-10); // LiuXh add 2019-07-15, modify in 2021-12-3
 
-void output_dHR(const int& istep,
-                const ModuleBase::matrix& v_eff,
+                template <typename TK>
+                void output_HSR_block(const int& istep,
+                     const Parallel_Orbitals& pv,
+                     hamilt::Hamilt<TK>* p_ham,
+                     const std::string& SR_filename = "srs_block",
+                     const std::string& HR_filename_up = "hrs_block_up",
+                     const std::string& HR_filename_down = "hrs_block_down",
+                     const bool& binary = false);
+
+                void output_dHR(const int& istep,                const ModuleBase::matrix& v_eff,
                 const UnitCell& ucell,
                 const Parallel_Orbitals& pv,
                 LCAO_HS_Arrays& HS_Arrays,

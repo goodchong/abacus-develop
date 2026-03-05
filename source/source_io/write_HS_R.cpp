@@ -119,6 +119,143 @@ void ModuleIO::output_HSR(const UnitCell& ucell,
     return;
 }
 
+template <typename T>
+void dump_element_text(std::ofstream& ofs, const T& val)
+{
+    ofs << "    " << val << "\n";
+}
+
+template <>
+void dump_element_text<std::complex<double>>(std::ofstream& ofs, const std::complex<double>& val)
+{
+    ofs << "    " << val.real() << " " << val.imag() << "\n";
+}
+
+template <typename T>
+void write_hcontainer_block(const std::string& filename,
+                            const int& istep,
+                            const hamilt::HContainer<T>& hR,
+                            const bool& binary)
+{
+    std::ofstream ofs;
+    if (binary)
+    {
+        ofs.open(filename.c_str(), std::ios::binary);
+    }
+    else
+    {
+        ofs.open(filename.c_str());
+    }
+
+    if (!ofs.is_open())
+    {
+        return;
+    }
+
+    const int nAP = hR.size_atom_pairs();
+    if (binary)
+    {
+        ofs.write(reinterpret_cast<const char*>(&istep), sizeof(int));
+        ofs.write(reinterpret_cast<const char*>(&nAP), sizeof(int));
+    }
+    else
+    {
+        ofs << "STEP: " << istep << "\n";
+        ofs << "AtomPairs: " << nAP << "\n";
+    }
+
+    for (int iap = 0; iap < nAP; ++iap)
+    {
+        const auto& ap = hR.get_atom_pair(iap);
+        const int atom_i = ap.get_atom_i();
+        const int atom_j = ap.get_atom_j();
+        const int nR = ap.get_R_size();
+        const int row_size = ap.get_row_size();
+        const int col_size = ap.get_col_size();
+
+        if (binary)
+        {
+            ofs.write(reinterpret_cast<const char*>(&atom_i), sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(&atom_j), sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(&row_size), sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(&col_size), sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(&nR), sizeof(int));
+        }
+        else
+        {
+            ofs << "Pair: " << atom_i << " " << atom_j << " " << row_size << " " << col_size << " " << nR << "\n";
+        }
+
+        for (int iR = 0; iR < nR; ++iR)
+        {
+            const auto R = ap.get_R_index(iR);
+            const auto& mat = ap.get_HR_values(iR);
+            const T* data = mat.get_pointer();
+            const int mat_size = row_size * col_size;
+
+            if (binary)
+            {
+                ofs.write(reinterpret_cast<const char*>(&R.x), sizeof(int));
+                ofs.write(reinterpret_cast<const char*>(&R.y), sizeof(int));
+                ofs.write(reinterpret_cast<const char*>(&R.z), sizeof(int));
+                ofs.write(reinterpret_cast<const char*>(data), mat_size * sizeof(T));
+            }
+            else
+            {
+                ofs << "  R: " << R.x << " " << R.y << " " << R.z << "\n";
+                for (int i = 0; i < mat_size; ++i)
+                {
+                    dump_element_text(ofs, data[i]);
+                }
+            }
+        }
+    }
+    ofs.close();
+}
+
+template <typename TK>
+void ModuleIO::output_HSR_block(const int& istep,
+                                const Parallel_Orbitals& pv,
+                                hamilt::Hamilt<TK>* p_ham,
+                                const std::string& SR_filename,
+                                const std::string& HR_filename_up,
+                                const std::string& HR_filename_down,
+                                const bool& binary)
+{
+    ModuleBase::TITLE("ModuleIO", "output_HSR_block");
+    
+    const int nspin = PARAM.inp.nspin;
+    std::string suffix = "_" + std::to_string(GlobalV::DRANK) + ".dat";
+
+    if (nspin == 1 || nspin == 2)
+    {
+        hamilt::HamiltLCAO<TK, double>* p_ham_lcao = dynamic_cast<hamilt::HamiltLCAO<TK, double>*>(p_ham);
+        if (!p_ham_lcao) return;
+
+        // Write Overlap Matrix
+        std::string s_file = PARAM.globalv.global_out_dir + SR_filename + suffix;
+        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), binary);
+
+        // Write Hamiltonian Matrix
+        std::string h_file = PARAM.globalv.global_out_dir + HR_filename_up + suffix;
+        write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), binary);
+    }
+    else if (nspin == 4)
+    {
+        hamilt::HamiltLCAO<std::complex<double>, std::complex<double>>* p_ham_lcao 
+            = dynamic_cast<hamilt::HamiltLCAO<std::complex<double>, std::complex<double>>*>(p_ham);
+        if (!p_ham_lcao) return;
+
+        // Write Overlap Matrix
+        std::string s_file = PARAM.globalv.global_out_dir + SR_filename + suffix;
+        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), binary);
+
+        // Write Hamiltonian Matrix
+        std::string h_file = PARAM.globalv.global_out_dir + HR_filename_up + suffix;
+        write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), binary);
+    }
+}
+
 void ModuleIO::output_dSR(const int& istep,
                           const UnitCell& ucell,
                           const Parallel_Orbitals& pv,
@@ -350,3 +487,19 @@ template void ModuleIO::output_SR<std::complex<double>>(Parallel_Orbitals& pv,
                                                         const std::string& SR_filename,
                                                         const bool& binary,
                                                         const double& sparse_thr);
+
+template void ModuleIO::output_HSR_block<double>(const int& istep,
+                                                 const Parallel_Orbitals& pv,
+                                                 hamilt::Hamilt<double>* p_ham,
+                                                 const std::string& SR_filename,
+                                                 const std::string& HR_filename_up,
+                                                 const std::string& HR_filename_down,
+                                                 const bool& binary);
+
+template void ModuleIO::output_HSR_block<std::complex<double>>(const int& istep,
+                                                              const Parallel_Orbitals& pv,
+                                                              hamilt::Hamilt<std::complex<double>>* p_ham,
+                                                              const std::string& SR_filename,
+                                                              const std::string& HR_filename_up,
+                                                              const std::string& HR_filename_down,
+                                                              const bool& binary);
