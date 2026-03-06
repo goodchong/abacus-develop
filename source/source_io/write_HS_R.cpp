@@ -1,5 +1,6 @@
 #include "write_HS_R.h"
 
+#include <iomanip>
 #include "source_base/timer.h"
 #include "source_io/module_parameter/parameter.h"
 #include "source_lcao/LCAO_HS_arrays.hpp"
@@ -122,20 +123,23 @@ void ModuleIO::output_HSR(const UnitCell& ucell,
 template <typename T>
 void dump_element_text(std::ofstream& ofs, const T& val)
 {
-    ofs << "    " << val << "\n";
+    ofs << " " << std::setprecision(16) << std::scientific << val;
 }
 
 template <>
 void dump_element_text<std::complex<double>>(std::ofstream& ofs, const std::complex<double>& val)
 {
-    ofs << "    " << val.real() << " " << val.imag() << "\n";
+    ofs << " " << std::setprecision(16) << std::scientific << val.real() 
+        << " " << std::setprecision(16) << std::scientific << val.imag();
 }
 
 template <typename T>
 void write_hcontainer_block(const std::string& filename,
                             const int& istep,
                             const hamilt::HContainer<T>& hR,
-                            const bool& binary)
+                            const Parallel_Orbitals& pv,
+                            const bool& binary,
+                            const double& sparse_thr)
 {
     std::ofstream ofs;
     if (binary)
@@ -152,26 +156,77 @@ void write_hcontainer_block(const std::string& filename,
         return;
     }
 
-    const int nAP = hR.size_atom_pairs();
+    // First pass: count valid pairs and their valid R vectors
+    std::vector<std::pair<int, std::vector<int>>> valid_pairs;
+    int valid_ap_count = 0;
+
+    for (int iap = 0; iap < hR.size_atom_pairs(); ++iap)
+    {
+        const auto& ap = hR.get_atom_pair(iap);
+        const int nR = ap.get_R_size();
+        const int mat_size = ap.get_row_size() * ap.get_col_size();
+
+        std::vector<int> valid_R_indices;
+        for (int iR = 0; iR < nR; ++iR)
+        {
+            const auto& mat = ap.get_HR_values(iR);
+            const T* data = mat.get_pointer();
+            bool has_non_zero = false;
+            for (int i = 0; i < mat_size; ++i)
+            {
+                if (std::abs(data[i]) > sparse_thr)
+                {
+                    has_non_zero = true;
+                    break;
+                }
+            }
+            if (has_non_zero)
+            {
+                valid_R_indices.push_back(iR);
+            }
+        }
+        
+        if (!valid_R_indices.empty())
+        {
+            valid_pairs.push_back({iap, valid_R_indices});
+            valid_ap_count++;
+        }
+    }
+
     if (binary)
     {
         ofs.write(reinterpret_cast<const char*>(&istep), sizeof(int));
-        ofs.write(reinterpret_cast<const char*>(&nAP), sizeof(int));
+        ofs.write(reinterpret_cast<const char*>(&valid_ap_count), sizeof(int));
     }
     else
     {
         ofs << "STEP: " << istep << "\n";
-        ofs << "AtomPairs: " << nAP << "\n";
+        ofs << "AtomPairs: " << valid_ap_count << "\n";
     }
 
-    for (int iap = 0; iap < nAP; ++iap)
+    auto global_row_indexes = pv.get_indexes_row();
+    auto global_col_indexes = pv.get_indexes_col();
+
+    for (const auto& pair_info : valid_pairs)
     {
+        const int iap = pair_info.first;
+        const auto& valid_R_indices = pair_info.second;
+        
         const auto& ap = hR.get_atom_pair(iap);
         const int atom_i = ap.get_atom_i();
         const int atom_j = ap.get_atom_j();
-        const int nR = ap.get_R_size();
+        const int nR_valid = valid_R_indices.size();
         const int row_size = ap.get_row_size();
         const int col_size = ap.get_col_size();
+
+        int start_i = pv.atom_begin_row[atom_i];
+        int start_j = pv.atom_begin_col[atom_j];
+
+        std::vector<int> row_idx(row_size);
+        for(int i=0; i<row_size; ++i) row_idx[i] = global_row_indexes[start_i + i];
+        
+        std::vector<int> col_idx(col_size);
+        for(int j=0; j<col_size; ++j) col_idx[j] = global_col_indexes[start_j + j];
 
         if (binary)
         {
@@ -179,14 +234,21 @@ void write_hcontainer_block(const std::string& filename,
             ofs.write(reinterpret_cast<const char*>(&atom_j), sizeof(int));
             ofs.write(reinterpret_cast<const char*>(&row_size), sizeof(int));
             ofs.write(reinterpret_cast<const char*>(&col_size), sizeof(int));
-            ofs.write(reinterpret_cast<const char*>(&nR), sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(&nR_valid), sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(row_idx.data()), row_size * sizeof(int));
+            ofs.write(reinterpret_cast<const char*>(col_idx.data()), col_size * sizeof(int));
         }
         else
         {
-            ofs << "Pair: " << atom_i << " " << atom_j << " " << row_size << " " << col_size << " " << nR << "\n";
+            ofs << "Pair: " << atom_i << " " << atom_j << " " << row_size << " " << col_size << " " << nR_valid << "\n";
+            ofs << "RowIdx: ";
+            for(int idx : row_idx) ofs << idx << " ";
+            ofs << "\nColIdx: ";
+            for(int idx : col_idx) ofs << idx << " ";
+            ofs << "\n";
         }
 
-        for (int iR = 0; iR < nR; ++iR)
+        for (int iR : valid_R_indices)
         {
             const auto R = ap.get_R_index(iR);
             const auto& mat = ap.get_HR_values(iR);
@@ -207,6 +269,7 @@ void write_hcontainer_block(const std::string& filename,
                 {
                     dump_element_text(ofs, data[i]);
                 }
+                ofs << "\n";
             }
         }
     }
@@ -220,25 +283,48 @@ void ModuleIO::output_HSR_block(const int& istep,
                                 const std::string& SR_filename,
                                 const std::string& HR_filename_up,
                                 const std::string& HR_filename_down,
-                                const bool& binary)
+                                const bool& binary,
+                                const double& sparse_threshold)
 {
     ModuleBase::TITLE("ModuleIO", "output_HSR_block");
     
     const int nspin = PARAM.inp.nspin;
     std::string suffix = "_" + std::to_string(GlobalV::DRANK) + ".dat";
 
-    if (nspin == 1 || nspin == 2)
+    if (nspin == 1)
     {
         hamilt::HamiltLCAO<TK, double>* p_ham_lcao = dynamic_cast<hamilt::HamiltLCAO<TK, double>*>(p_ham);
         if (!p_ham_lcao) return;
 
-        // Write Overlap Matrix
         std::string s_file = PARAM.globalv.global_out_dir + SR_filename + suffix;
-        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), binary);
+        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), pv, binary, sparse_threshold);
 
-        // Write Hamiltonian Matrix
         std::string h_file = PARAM.globalv.global_out_dir + HR_filename_up + suffix;
-        write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), binary);
+        write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), pv, binary, sparse_threshold);
+    }
+    else if (nspin == 2)
+    {
+        hamilt::HamiltLCAO<TK, double>* p_ham_lcao = dynamic_cast<hamilt::HamiltLCAO<TK, double>*>(p_ham);
+        if (!p_ham_lcao) return;
+
+        // Overlap matrix is spin-independent
+        std::string s_file = PARAM.globalv.global_out_dir + SR_filename + suffix;
+        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), pv, binary, sparse_threshold);
+
+        // The current state in p_ham is spin down (spin_now = 1)
+        std::string h_file_down = PARAM.globalv.global_out_dir + HR_filename_down + suffix;
+        write_hcontainer_block(h_file_down, istep, *(p_ham_lcao->getHR()), pv, binary, sparse_threshold);
+
+        // Recalculate HR for spin up (spin_now = 0)
+        if (PARAM.inp.vl_in_h)
+        {
+            const int ik = 0;
+            p_ham->refresh();
+            p_ham->updateHk(ik);
+        }
+
+        std::string h_file_up = PARAM.globalv.global_out_dir + HR_filename_up + suffix;
+        write_hcontainer_block(h_file_up, istep, *(p_ham_lcao->getHR()), pv, binary, sparse_threshold);
     }
     else if (nspin == 4)
     {
@@ -248,11 +334,11 @@ void ModuleIO::output_HSR_block(const int& istep,
 
         // Write Overlap Matrix
         std::string s_file = PARAM.globalv.global_out_dir + SR_filename + suffix;
-        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), binary);
+        write_hcontainer_block(s_file, istep, *(p_ham_lcao->getSR()), pv, binary, sparse_threshold);
 
         // Write Hamiltonian Matrix
         std::string h_file = PARAM.globalv.global_out_dir + HR_filename_up + suffix;
-        write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), binary);
+        write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), pv, binary, sparse_threshold);
     }
 }
 
@@ -494,7 +580,8 @@ template void ModuleIO::output_HSR_block<double>(const int& istep,
                                                  const std::string& SR_filename,
                                                  const std::string& HR_filename_up,
                                                  const std::string& HR_filename_down,
-                                                 const bool& binary);
+                                                 const bool& binary,
+                                                 const double& sparse_threshold);
 
 template void ModuleIO::output_HSR_block<std::complex<double>>(const int& istep,
                                                               const Parallel_Orbitals& pv,
@@ -502,4 +589,5 @@ template void ModuleIO::output_HSR_block<std::complex<double>>(const int& istep,
                                                               const std::string& SR_filename,
                                                               const std::string& HR_filename_up,
                                                               const std::string& HR_filename_down,
-                                                              const bool& binary);
+                                                              const bool& binary,
+                                                              const double& sparse_threshold);

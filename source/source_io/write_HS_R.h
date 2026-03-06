@@ -38,7 +38,8 @@ void output_HSR(const UnitCell& ucell,
                      const std::string& SR_filename = "srs_block",
                      const std::string& HR_filename_up = "hrs_block_up",
                      const std::string& HR_filename_down = "hrs_block_down",
-                     const bool& binary = false);
+                     const bool& binary = false,
+                     const double& sparse_threshold = 1e-10);
 
                 void output_dHR(const int& istep,                const ModuleBase::matrix& v_eff,
                 const UnitCell& ucell,
