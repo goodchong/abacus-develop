@@ -123,14 +123,14 @@ void ModuleIO::output_HSR(const UnitCell& ucell,
 template <typename T>
 void dump_element_text(std::ofstream& ofs, const T& val)
 {
-    ofs << " " << std::setprecision(16) << std::scientific << val;
+    ofs << " " << std::setprecision(8) << std::scientific << val;
 }
 
 template <>
 void dump_element_text<std::complex<double>>(std::ofstream& ofs, const std::complex<double>& val)
 {
-    ofs << " " << std::setprecision(16) << std::scientific << val.real() 
-        << " " << std::setprecision(16) << std::scientific << val.imag();
+    ofs << " " << std::setprecision(8) << std::scientific << val.real() 
+        << " " << std::setprecision(8) << std::scientific << val.imag();
 }
 
 template <typename T>
@@ -287,7 +287,7 @@ void ModuleIO::output_HSR_block(const int& istep,
                                 const double& sparse_threshold)
 {
     ModuleBase::TITLE("ModuleIO", "output_HSR_block");
-    
+    ModuleBase::timer::tick("ModuleIO", "output_HSR_block");
     const int nspin = PARAM.inp.nspin;
     std::string suffix = "_" + std::to_string(GlobalV::DRANK) + ".dat";
 
@@ -340,6 +340,7 @@ void ModuleIO::output_HSR_block(const int& istep,
         std::string h_file = PARAM.globalv.global_out_dir + HR_filename_up + suffix;
         write_hcontainer_block(h_file, istep, *(p_ham_lcao->getHR()), pv, binary, sparse_threshold);
     }
+    ModuleBase::timer::tick("ModuleIO", "output_HSR_block");
 }
 
 void ModuleIO::output_dSR(const int& istep,
