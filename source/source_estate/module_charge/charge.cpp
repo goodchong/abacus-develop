@@ -240,13 +240,13 @@ void Charge::atomic_rho(const int spin_number_need,
             for (int it = 0; it < ucell.ntype; it++)
             {
                 // check the start magnetization
-                const int startmag_type = [&]() -> int {
+                const int startmag_type = 1; /*[&]() -> int {
                     if (ucell.magnet.start_mag[it] != 0.0) 
                     {
                         return 1;
                     }
                     return 2;
-                }();
+                }();*/
                 ModuleBase::GlobalFunc::OUT(GlobalV::ofs_warning, "startmag_type", startmag_type);
 
                 const Atom* const atom = &ucell.atoms[it];
