@@ -16,7 +16,6 @@
 #include "source_base/global_function.h"
 #include "source_base/tool_quit.h"
 #include "source_base/tool_title.h"
-#include "source_base/module_device/device.h"
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -162,23 +161,7 @@ ReadInput::ReadInput(const int& rank)
 {
     this->rank = rank;
 
-    // add items
-    this->item_system();
-    this->item_elec_stru();
-    this->item_relax();
-    this->item_md();
-    this->item_ofdft();
-    this->item_sdft();
-    this->item_deepks();
-    this->item_rt_tddft();
-    this->item_tdofdft();
-    this->item_lr_tddft();
-    this->item_output();
-    this->item_postprocess();
-    this->item_model();
-    this->item_exx();
-    this->item_dftu();
-    this->item_others();
+    this->item_h0();
 }
 
 void ReadInput::read_parameters(Parameter& param, const std::string& filename_in)
@@ -225,14 +208,6 @@ void ReadInput::read_parameters(Parameter& param, const std::string& filename_in
         }
     }
 
-    // 6. Initialize GPU device context (unified entry point)
-    // This must be after bcastfunc to ensure param.inp.device is synchronized across all ranks
-    // This replaces scattered cudaSetDevice/hipSetDevice calls throughout the codebase
-    if (param.inp.device == "gpu")
-    {
-        base_device::DeviceContext::instance().init();
-    }
-
     if (this->check_mode)
     {
         std::cout << "----------------------------------------------------------" << std::endl;
@@ -247,41 +222,9 @@ void ReadInput::create_directory(const Parameter& param)
 {
     ModuleBase::TITLE("ReadInput", "create_directory");
 
-    // mohan move forward 2011-02-26
-    //----------------------------------------------------------
-    // OTHRE CLASS MEMBER FUNCTION :
-    // NAME : Run::make_dir( dir name : OUT.suffix)
-    //----------------------------------------------------------
-    bool out_dir = false;
-    if (!param.input.out_app_flag
-        && (param.input.out_mat_hs2[0] || param.input.out_mat_r[0] || param.input.out_mat_t[0] || param.input.out_mat_dh[0] || param.input.out_mat_ds[0]))
-    {
-        out_dir = true;
-    }
-    bool out_wfc_dir = false;
-    if (param.input.out_wfc_lcao && !param.input.out_app_flag)
-    {
-        out_wfc_dir = true;
-    }
-    // NOTE: "make_dir_out" must be called by all processes!!!
-    //       Maybe it is not good, because only rank 0 can create the directory.
-    ModuleBase::Global_File::make_dir_out(param.input.suffix,
-                                          param.input.calculation,
-                                          out_dir,
-                                          out_wfc_dir,
-                                          this->rank,
-                                          param.input.mdp.md_restart,
-                                          param.input.out_alllog,
-                                          param.globalv.global_out_dir,
-                                          param.globalv.global_stru_dir,
-                                          param.globalv.global_matrix_dir,
-                                          param.globalv.global_wfc_dir,
-                                          param.globalv.global_mlkedf_descriptor_dir,
-                                          param.globalv.global_deepks_label_elec_dir,
-                                          param.globalv.log_file,
-                                          param.input.of_ml_gene_data,
-                                          param.input.deepks_out_freq_elec > 0); // xiaohui add 2013-09-01
-    //const std::string ss = "test -d " + PARAM.inp.read_file_dir;
+    ModuleBase::Global_File::make_h0_output_dir(this->rank,
+                                                param.globalv.global_out_dir,
+                                                param.globalv.log_file);
     struct stat st;
     if (stat(PARAM.inp.read_file_dir.c_str(), &st) != 0 || !S_ISDIR(st.st_mode))
     {
@@ -422,7 +365,7 @@ void ReadInput::write_txt_input(const Parameter& param, const std::string& filen
     ofs << "INPUT_PARAMETERS" << std::endl;
     ofs << std::setiosflags(std::ios::left);
 
-    ofs << "#Parameters (1.System)" << std::endl;
+    ofs << "# H0-only parameters" << std::endl;
     for (auto& item: this->input_lists)
     {
         Input_Item* p_item = &(item.second);
@@ -430,83 +373,6 @@ void ReadInput::write_txt_input(const Parameter& param, const std::string& filen
             continue;
 }
         p_item->get_final_value(*p_item, param);
-        if (p_item->label == "ks_solver")
-        {
-            ofs << "\n#Parameters (2.Electronic structure)" << std::endl;
-        }
-        else if (p_item->label == "nb2d")
-        {
-            ofs << "\n#Parameters (3.LCAO)" << std::endl;
-        }
-        else if (p_item->label == "relax_method")
-        {
-            ofs << "\n#Parameters (4.Relaxation)" << std::endl;
-        }
-        else if (p_item->label == "md_type")
-        {
-            ofs << "\n#Parameters (5.Molecular dynamics)" << std::endl;
-        }
-        else if (p_item->label == "of_kinetic")
-        {
-            ofs << "\n#Parameters (6.orbital free density functional theory)" << std::endl;
-        }
-        else if (p_item->label == "method_sto")
-        {
-            ofs << "\n#Parameters (7.Stochastic DFT)" << std::endl;
-        }
-        else if (p_item->label == "deepks_out_labels")
-        {
-            ofs << "\n#Parameters (8.DeepKS)" << std::endl;
-        }
-        else if (p_item->label == "td_dt")
-        {
-            ofs << "\n#Parameters (9.rt-tddft)" << std::endl;
-        }
-        else if (p_item->label == "lr_nstates")
-        {
-            ofs << "\n#Parameters (10.lr-tddft)" << std::endl;
-        }
-        else if (p_item->label == "out_stru")
-        {
-            ofs << "\n#Parameters (11.Output)" << std::endl;
-        }
-        else if (p_item->label == "dos_emin_ev")
-        {
-            ofs << "\n#Parameters (12.Postprocess)" << std::endl;
-        }
-        else if (p_item->label == "efield_flag")
-        {
-            ofs << "\n#Parameters (13.Model)" << std::endl;
-        }
-        else if (p_item->label == "vdw_method")
-        {
-            ofs << "\n#Parameters (14.vdW Correction)" << std::endl;
-        }
-        else if (p_item->label == "exx_fock_alpha")
-        {
-            ofs << "\n#Parameters (15.exx)" << std::endl;
-        }
-        else if (p_item->label == "dft_plus_u")
-        {
-            ofs << "\n#Parameters (16.dft+u)" << std::endl;
-        }
-        else if (p_item->label == "sc_mag_switch")
-        {
-            ofs << "\n#Parameters (17.non-collinear spin-constrained DFT)" << std::endl;
-        }
-        else if (p_item->label == "qo_switch")
-        {
-            ofs << "\n#Parameters (18.Quasiatomic Orbital analysis)" << std::endl;
-        }
-        else if (p_item->label == "pexsi_npole")
-        {
-            ofs << "\n#Parameters (19.PEXSI)" << std::endl;
-        }
-        else if (p_item->label == "out_alllog")
-        {
-            ofs << "\n#Parameters (20.Test)" << std::endl;
-        }
-
         ModuleBase::GlobalFunc::OUTP(ofs, p_item->label, p_item->final_value.str(), p_item->annotation);
     }
 }
@@ -562,24 +428,6 @@ void ReadInput::check_ntype(const std::string& fn, int& param_ntype)
     }
 }
 
-int ReadInput::current_md_step(const std::string& file_dir)
-{
-    std::stringstream ssc;
-    ssc << file_dir << "Restart_md.txt";
-    std::ifstream file(ssc.str().c_str());
-
-    if (!file)
-    {
-        ModuleBase::WARNING_QUIT("current_md_step", "no Restart_md.txt");
-    }
-
-    int md_step = 0;
-    file >> md_step;
-    file.close();
-
-    return md_step;
-}
-
 void ReadInput::add_item(const Input_Item& item)
 {
     // Normally only rank 0 reads the input file
@@ -588,30 +436,6 @@ void ReadInput::add_item(const Input_Item& item)
     {
         this->input_lists.push_back(make_pair(item.label, item));
     }
-}
-
-std::string nofound_str(std::vector<std::string> init_chgs, const std::string& str)
-{
-    std::string warningstr = "The parameter ";
-    warningstr.append(str);
-    warningstr.append(" must be ");
-    for(int i = 0; i < init_chgs.size(); i++)
-    {
-        warningstr.append("'");
-        warningstr.append(init_chgs[i]);
-        warningstr.append("'");
-        if(i < init_chgs.size() - 2)
-        {
-            warningstr.append(", ");
-        }
-        else if(i == init_chgs.size() - 2)
-        {
-            warningstr.append(" or ");
-        }
-    }
-    warningstr.append("!");
-
-    return warningstr;
 }
 
 } // namespace ModuleIO

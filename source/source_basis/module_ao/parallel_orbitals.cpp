@@ -1,48 +1,14 @@
 #include "parallel_orbitals.h"
 
-#include "source_base/module_external/blacs_connector.h"
-#include "source_base/module_external/scalapack_connector.h"
 #include "source_base/global_function.h"
 
 Parallel_Orbitals::Parallel_Orbitals()
 {
-    // in multi-k, 2D-block-division variables for FT (R<->k)
     this->nnr = 1;
-    this->ncol_bands = 0;
-    this->nrow_bands=0;
-    this->nloc_wfc=0;
-    this->nloc_Eij=0;
-    this->lastband_in_proc=0;
-    this->lastband_number=0;
-    this->nbands = 0;
-
 }
 
 Parallel_Orbitals::~Parallel_Orbitals()
 {
-}
-
-int Parallel_Orbitals::get_wfc_global_nbands() const
-{
-#ifdef __MPI
-    return this->desc_wfc[3];
-#else    
-    return this->ncol_bands;
-#endif
-}
-
-int Parallel_Orbitals::get_wfc_global_nbasis() const
-{
-#ifdef __MPI
-    return this->desc_wfc[2];
-#else
-    return this->nrow_bands;
-#endif
-}
-
-int Parallel_Orbitals::get_nbands() const
-{
-    return this->nbands;
 }
 
 void Parallel_Orbitals::set_atomic_trace(const int* iat2iwt, const int &nat, const int &nlocal)
@@ -204,77 +170,3 @@ std::vector<int> Parallel_Orbitals::get_indexes_col(int iat) const
     }
     return indexes;
 }
-
-#ifdef __MPI
-void Parallel_Orbitals::set_desc_wfc_Eij(const int& nbasis, const int& nbands, const int& lld)
-{
-    ModuleBase::TITLE("Parallel_2D", "set_desc_wfc_Eij");
-#ifdef __DEBUG
-    assert(nbasis > 0 && nbands > 0 && lld > 0);
-    assert(this->nb > 0 && this->dim0 > 0 && this->dim1 > 0);
-#endif
-    int ISRC = 0;
-    int info = 0;
-    descinit_(desc_wfc, &nbasis, &nbands, &this->nb, &this->nb, &ISRC, &ISRC, &this->blacs_ctxt, &lld, &info);
-    descinit_(desc_wfc1, &nbands, &nbasis, &this->nb, &this->nb, &ISRC, &ISRC, &this->blacs_ctxt, &lld, &info);
-    descinit_(desc_Eij, &nbands, &nbands, &this->nb, &this->nb, &ISRC, &ISRC, &this->blacs_ctxt, &lld, &info);
-}
-int Parallel_Orbitals::set_nloc_wfc_Eij(
-    const int& N_A,
-    std::ofstream& ofs_running,
-    std::ofstream& ofs_warning)
-{
-    ModuleBase::TITLE("Parallel_Orbitals", "set_nloc_wfc_Eij");
-    // for wavefuncton , calculate nbands_loc
-    this->nbands = N_A;
-    int end_id = 0;
-    int block = N_A / nb;
-    if (block * nb < N_A)
-    {
-        block++;
-    }
-    if (dim1 > block)
-    {
-        ofs_warning << " cpu 2D distribution : " << dim0 << "*" << dim1 << std::endl;
-        ofs_warning << " but, the number of bands-row-block is " << block << std::endl;
-        if (nb > 1)
-        {
-            return 1;
-        }
-        else
-        {
-            ModuleBase::WARNING_QUIT("Parallel_Orbitals::set_nloc_wfc_Eij",
-                "The number of columns of the 2D process grid exceeds the number of bands. "
-                "Try launching the calculation with fewer MPI processes."
-            );
-        }
-    }
-    int col_b_bands = block / dim1;
-    if (get_coord_col() < block % dim1)
-    {
-        col_b_bands++;
-    }
-    if (block % dim1 == 0)
-    {
-        end_id = dim1 - 1;
-    }
-    else
-    {
-        end_id = block % dim1 - 1;
-    }
-    if (get_coord_col() == end_id)
-    {
-        this->ncol_bands = (col_b_bands - 1) * nb + (N_A - (block - 1) * nb);
-    }
-    else
-    {
-        this->ncol_bands = col_b_bands * nb;
-    }
-    this->nrow_bands = this->nrow;
-    this->nloc_wfc = this->ncol_bands * this->nrow;
-
-    this->nloc_Eij = this->ncol_bands * this->ncol_bands;
-
-    return 0;
-}
-#endif

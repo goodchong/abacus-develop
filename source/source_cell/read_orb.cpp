@@ -2,7 +2,10 @@
 #include "source_base/formatter.h"
 
 namespace unitcell {
-    bool read_orb_file(int it, std::string &orb_file, std::ofstream &ofs_running, Atom* atom)
+    bool read_orb_file(int it,
+                       const std::string& orb_file,
+                       std::ofstream& ofs_running,
+                       Atom* atom)
     {
     // the maximum L is 9 like cc-pV9Z, according to the 
     // basissetexchange https://www.basissetexchange.org/

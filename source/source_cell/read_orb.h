@@ -14,7 +14,7 @@ namespace unitcell
      * @param atom Atom instance stored in UnitCell
     */
     bool read_orb_file(int it,
-                       std::string& orb_file,
+                       const std::string& orb_file,
                        std::ofstream& ofs_running,
                        Atom* atom);
 

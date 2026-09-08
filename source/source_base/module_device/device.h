@@ -18,19 +18,19 @@ namespace information
 
 /**
  * @brief Get the device name
- * for source_esolver
+ * for numerical kernels
  */
 std::string get_device_name(std::string device_flag);
 
 /**
  * @brief Get the device number
- * for source_esolver
+ * for numerical kernels
  */
 int get_device_num(std::string device_flag);
 
 /**
  * @brief Output the device information
- * for source_esolver
+ * for numerical kernels
  * @param output  output stream.
  * @param device  device flag, "cpu" / "gpu" / "dsp".
  */

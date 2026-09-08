@@ -15,13 +15,7 @@ namespace unitcell
     
     bool read_atom_species(std::ifstream& ifa,
                           std::ofstream& ofs_running,
-                          UnitCell& ucell,
-                          const std::string& basis_type,
-                          const std::string& orbital_dir,
-                          const std::string& init_wfc,
-                          const double onsite_radius,
-                          const bool deepks_setorb,
-                          const bool rpa); 
+                          UnitCell& ucell);
     
     bool read_lattice_constant(std::ifstream& ifa,
                                std::ofstream& ofs_running,
@@ -35,13 +29,7 @@ namespace unitcell
                             std::ofstream &ofs_running, 
                             std::ofstream &ofs_warning,
                             const int nspin,
-                            const std::string& basis_type,
                             const std::string& orbital_dir,
-                            const std::string& init_wfc,
-                            const double onsite_radius,
-                            const bool fixed_atoms,
-                            const bool noncolin,
-                            const std::string& calculation,
-                            const std::string& esolver_type);
+                            const bool noncolin);
 }
 #endif // READ_STRU_H

@@ -17,14 +17,6 @@ find_library(FFTW3_LIBRARY
     PATH_SUFFIXES "lib"
     )
 
-if(ENABLE_FLOAT_FFTW)
-  find_library(FFTW3_FLOAT_LIBRARY
-      NAMES fftw3f
-      HINTS ${FFTW3_DIR}
-      PATH_SUFFIXES "lib"
-      )
-endif()
-
 # Both libfftw3.so and libfftw3_omp.so are required for OpenMP builds.
 if (ENABLE_OPENMP)
   find_library(FFTW3_OMP_LIBRARY
@@ -40,9 +32,6 @@ include(FindPackageHandleStandardArgs)
 set(_fftw3_required_vars FFTW3_LIBRARY FFTW3_INCLUDE_DIR)
 if(ENABLE_OPENMP)
   list(APPEND _fftw3_required_vars FFTW3_OMP_LIBRARY)
-endif()
-if(ENABLE_FLOAT_FFTW)
-  list(APPEND _fftw3_required_vars FFTW3_FLOAT_LIBRARY)
 endif()
 find_package_handle_standard_args(FFTW3 DEFAULT_MSG ${_fftw3_required_vars})
 
@@ -69,13 +58,6 @@ if(FFTW3_FOUND)
             IMPORTED_LINK_INTERFACE_LANGUAGES "C"
             IMPORTED_LOCATION "${FFTW3_LIBRARY}"
             INTERFACE_INCLUDE_DIRECTORIES "${FFTW3_INCLUDE_DIRS}")
-    endif()
-    if(ENABLE_FLOAT_FFTW AND NOT TARGET FFTW3::FFTW3_FLOAT)
-        add_library(FFTW3::FFTW3_FLOAT UNKNOWN IMPORTED)
-        set_target_properties(FFTW3::FFTW3_FLOAT PROPERTIES
-                IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-                IMPORTED_LOCATION "${FFTW3_FLOAT_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${FFTW3_INCLUDE_DIRS}")
     endif()
     if (ENABLE_OPENMP)
         if(NOT TARGET FFTW3::FFTW3_OMP)

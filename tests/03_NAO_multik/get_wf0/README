@@ -1,3 +1,0 @@
-Test the 'calculation get_wf' option with zero-weight k-points.
-This test verifies that ABACUS can handle k-points with zero weights
-by automatically assigning equal weights and issuing a warning.

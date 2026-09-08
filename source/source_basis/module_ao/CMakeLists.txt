@@ -1,5 +1,4 @@
-if(ENABLE_LCAO)
-  add_library(
+add_library(
       orb
       OBJECT
       ORB_atomic.cpp
@@ -10,15 +9,4 @@ if(ENABLE_LCAO)
       ORB_read.cpp
       parallel_orbitals.cpp
       element_basis_index-ORB.cpp
-  )
-
-  if(ENABLE_COVERAGE)
-    add_coverage(orb)
-  endif()
-
-  if(BUILD_TESTING)
-    if(ENABLE_MPI)
-      add_subdirectory(test)
-    endif()
-  endif()
-endif()
+)

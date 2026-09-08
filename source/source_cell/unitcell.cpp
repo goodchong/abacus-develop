@@ -14,13 +14,11 @@
 #include "source_base/element_elec_config.h"
 #include "source_base/global_file.h"
 #include "source_base/parallel_common.h"
-#include "source_cell/sep_cell.h"
 
 #ifdef __MPI
 #include "mpi.h"
 #endif
 
-#include "update_cell.h"
 UnitCell::UnitCell()
 {
     itia2iat.create(1, 1);
@@ -48,7 +46,6 @@ void UnitCell::print_cell(std::ofstream& ofs) const {
     ModuleBase::GlobalFunc::OUT(ofs, "omega", omega);
 
     output::printM3(ofs, "Lattices Vector (R) : ", latvec);
-    output::printM3(ofs, "Supercell lattice vector : ", latvec_supercell);
     output::printM3(ofs, "Reciprocal lattice Vector (G): ", G);
     output::printM3(ofs, "GGT : ", GGT);
 
@@ -74,115 +71,15 @@ void UnitCell::set_iat2itia() {
     return;
 }
 
-std::map<int, int> UnitCell::get_atom_Counts() const {
-    std::map<int, int> atomCounts;
-    for (int it = 0; it < this->ntype; it++) {
-        atomCounts.insert(std::pair<int, int>(it, this->atoms[it].na));
-    }
-    return atomCounts;
-}
-
-std::map<int, int> UnitCell::get_orbital_Counts() const {
-    std::map<int, int> orbitalCounts;
-    for (int it = 0; it < this->ntype; it++) {
-        orbitalCounts.insert(std::pair<int, int>(it, this->atoms[it].nw));
-    }
-    return orbitalCounts;
-}
-
-std::map<int, std::map<int, int>> UnitCell::get_lnchi_Counts() const {
-    std::map<int, std::map<int, int>> lnchiCounts;
-    for (int it = 0; it < this->ntype; it++) {
-        for (int L = 0; L < this->atoms[it].nwl + 1; L++) {
-            // Check if the key 'it' exists in the outer map
-            if (lnchiCounts.find(it) == lnchiCounts.end()) {
-                // If it doesn't exist, initialize an empty inner map
-                lnchiCounts[it] = std::map<int, int>();
-            }
-            int l_nchi = this->atoms[it].l_nchi[L];
-            // Insert the key-value pair into the inner map
-            lnchiCounts[it].insert(std::pair<int, int>(L, l_nchi));
-        }
-    }
-    return lnchiCounts;
-}
-
-std::vector<std::string> UnitCell::get_atomLabels() const {
-    std::vector<std::string> atomLabels(this->ntype);
-    for (int it = 0; it < this->ntype; it++) {
-        atomLabels[it] = this->atoms[it].label;
-    }
-    return atomLabels;
-}
-
-std::vector<int> UnitCell::get_atomCounts() const {
-    std::vector<int> atomCounts(this->ntype);
-    for (int it = 0; it < this->ntype; it++) {
-        atomCounts[it] = this->atoms[it].na;
-    }
-    return atomCounts;
-}
-
-std::vector<std::vector<int>> UnitCell::get_lnchiCounts() const {
-    std::vector<std::vector<int>> lnchiCounts(this->ntype);
-    for (int it = 0; it < this->ntype; it++) {
-        lnchiCounts[it].resize(this->atoms[it].nwl + 1);
-        for (int L = 0; L < this->atoms[it].nwl + 1; L++) {
-            lnchiCounts[it][L] = this->atoms[it].l_nchi[L];
-        }
-    }
-    return lnchiCounts;
-}
-
-std::vector<ModuleBase::Vector3<double>> UnitCell::get_target_mag() const
-{
-	std::vector<ModuleBase::Vector3<double>> target_mag(this->nat);
-	for (int it = 0; it < this->ntype; it++)
-	{
-		for (int ia = 0; ia < this->atoms[it].na; ia++)
-		{
-			int iat = itia2iat(it, ia);
-			target_mag[iat] = this->atoms[it].m_loc_[ia];
-		}
-	}
-	return target_mag;
-}
-
-std::vector<ModuleBase::Vector3<double>> UnitCell::get_lambda() const
-{
-	std::vector<ModuleBase::Vector3<double>> lambda(this->nat);
-	for (int it = 0; it < this->ntype; it++)
-	{
-		for (int ia = 0; ia < this->atoms[it].na; ia++)
-		{
-			int iat = itia2iat(it, ia);
-			lambda[iat] = this->atoms[it].lambda[ia];
-		}
-	}
-	return lambda;
-}
-
-std::vector<ModuleBase::Vector3<int>> UnitCell::get_constrain() const
-{
-	std::vector<ModuleBase::Vector3<int>> constrain(this->nat);
-	for (int it = 0; it < this->ntype; it++)
-	{
-		for (int ia = 0; ia < this->atoms[it].na; ia++)
-		{
-			int iat = itia2iat(it, ia);
-			constrain[iat] = this->atoms[it].constrain[ia];
-		}
-	}
-	return constrain;
-}
 
 //==============================================================
 // Calculate various lattice related quantities for given latvec
 //==============================================================
-void UnitCell::setup_cell(const std::string& fn, std::ofstream& log, const double symmetry_prec, const int dfthalf_type, const std::string& pseudo_dir, const int nspin,
-    const std::string& basis_type, const std::string& orbital_dir, const std::string& init_wfc,
-    const double onsite_radius, const bool deepks_setorb, const bool rpa,
-    const bool fixed_atoms, const bool noncolin, const std::string& calculation, const std::string& esolver_type)
+void UnitCell::setup_cell(const std::string& fn,
+                          std::ofstream& log,
+                          const int nspin,
+                          const std::string& orbital_dir,
+                          const bool noncolin)
 {
     ModuleBase::TITLE("UnitCell", "setup_cell");
 
@@ -192,13 +89,8 @@ void UnitCell::setup_cell(const std::string& fn, std::ofstream& log, const doubl
     this->atoms = new Atom[this->ntype]; // atom species.
     this->set_atom_flag = true;
 
-    this->symm.epsilon = symmetry_prec;
-    this->symm.epsilon_input = symmetry_prec;
-
     bool ok = true;
     bool ok2 = true;
-
-    bool ok3 = true; // for sep potential in DFT-1/2
 
     // (3) read in atom information
     this->atom_mass.resize(ntype);
@@ -239,31 +131,24 @@ void UnitCell::setup_cell(const std::string& fn, std::ofstream& log, const doubl
             //========================
             // call read_atom_species
             //========================
-            const bool read_atom_species = unitcell::read_atom_species(ifa, log, *this,
-                basis_type, orbital_dir, init_wfc, onsite_radius, deepks_setorb, rpa);
+            const bool read_atom_species
+                = unitcell::read_atom_species(ifa, log, *this);
             //========================
             // call read_lattice_constant
             //========================
             const bool read_lattice_constant = unitcell::read_lattice_constant(ifa, log ,this->lat);
-            //==========================
-            // readl sep potential, currently using the pseudopotential folder (pseudo_dir in INPUT)
-            //==========================
-            if (dfthalf_type > 0) {
-                sep_cell.init(this->ntype);
-                ok3 = sep_cell.read_sep_potentials(ifa, pseudo_dir, GlobalV::ofs_warning, this->atom_label);
-            }
-            //==========================
-            // call read_atom_positions
-            //==========================
-            ok2 = unitcell::read_atom_positions(*this, ifa, log, GlobalV::ofs_warning, nspin,
-                basis_type, orbital_dir, init_wfc, onsite_radius, fixed_atoms, noncolin,
-                calculation, esolver_type);
+            ok2 = unitcell::read_atom_positions(*this,
+                                                ifa,
+                                                log,
+                                                GlobalV::ofs_warning,
+                                                nspin,
+                                                orbital_dir,
+                                                noncolin);
         }
     }
 #ifdef __MPI
     Parallel_Common::bcast_bool(ok);
     Parallel_Common::bcast_bool(ok2);
-    Parallel_Common::bcast_bool(ok3);
 #endif
     if (!ok) {
         ModuleBase::WARNING_QUIT(
@@ -274,13 +159,8 @@ void UnitCell::setup_cell(const std::string& fn, std::ofstream& log, const doubl
         ModuleBase::WARNING_QUIT("UnitCell::setup_cell",
                                  "Something wrong during read_atom_positions.");
     }
-    if (!ok3) {
-        ModuleBase::WARNING_QUIT("UnitCell::setup_cell", "Something wrong during read_sep_potentials");
-    }
-
 #ifdef __MPI
     unitcell::bcast_unitcell(*this, nspin);
-    sep_cell.bcast_sep_cell();
 #endif
 
     //========================================================
@@ -324,12 +204,6 @@ void UnitCell::setup_cell(const std::string& fn, std::ofstream& log, const doubl
     this->GGT = G * GT;
     this->invGGT = GGT.Inverse();
 
-    // LiuXh add 20180515
-    this->GT0 = latvec.Inverse();
-    this->G0 = GT.Transpose();
-    this->GGT0 = G * GT;
-    this->invGGT0 = GGT.Inverse();
-
     log << std::endl;
     output::printM3(log,
                     "Lattice vectors: (Cartesian coordinate: in unit of a_0)",
@@ -343,8 +217,6 @@ void UnitCell::setup_cell(const std::string& fn, std::ofstream& log, const doubl
     // set index for iat2it, iat2ia
     //===================================
     this->set_iat2itia();
-
-    sep_cell.set_omega(this->omega, this->tpiba2);
 
     return;
 }
@@ -376,91 +248,10 @@ void UnitCell::set_iat2iwt(const int& npol_in)
 
 
 
-// check if any atom can be moved
-bool UnitCell::if_atoms_can_move() const
+void UnitCell::setup(const int ntype_in)
 {
-    for (int it = 0; it < this->ntype; it++)
-    {
-        Atom* atom = &atoms[it];
-		for (int ia = 0; ia < atom->na; ia++)
-		{
-			if (atom->mbl[ia].x || atom->mbl[ia].y || atom->mbl[ia].z)
-			{
-				return true;
-			}
-		}
-	}
-    return false;
-}
-
-// check if lattice vector can be changed
-bool UnitCell::if_cell_can_change() const
-{
-	// need to be fixed next
-	if (this->lat_axis_free[0] || this->lat_axis_free[1] || this->lat_axis_free[2])
-	{
-		return true;
-	}
-	return false;
-}
-
-void UnitCell::setup(const std::string& latname_in,
-                     const int& ntype_in,
-                     const int& lmaxmax_in,
-                     const bool& init_vel_in,
-                     const std::string& fixed_axes_in) {
-    this->latName = latname_in;
     this->ntype = ntype_in;
     this->magnet.start_mag.resize(ntype_in, 0.0);
-    this->lmaxmax = lmaxmax_in;
-    this->init_vel = init_vel_in;
-    // pengfei Li add 2018-11-11
-    if (fixed_axes_in == "None") {
-        this->lat_axis_free[0] = 1;
-        this->lat_axis_free[1] = 1;
-        this->lat_axis_free[2] = 1;
-    } else if (fixed_axes_in == "volume") {
-        this->lat_axis_free[0] = 1;
-        this->lat_axis_free[1] = 1;
-        this->lat_axis_free[2] = 1;
-    } else if (fixed_axes_in == "shape") {
-        this->lat_axis_free[0] = 1;
-        this->lat_axis_free[1] = 1;
-        this->lat_axis_free[2] = 1;
-    } else if (fixed_axes_in == "a") {
-        this->lat_axis_free[0] = 0;
-        this->lat_axis_free[1] = 1;
-        this->lat_axis_free[2] = 1;
-    } else if (fixed_axes_in == "b") {
-        this->lat_axis_free[0] = 1;
-        this->lat_axis_free[1] = 0;
-        this->lat_axis_free[2] = 1;
-    } else if (fixed_axes_in == "c") {
-        this->lat_axis_free[0] = 1;
-        this->lat_axis_free[1] = 1;
-        this->lat_axis_free[2] = 0;
-    } else if (fixed_axes_in == "ab") {
-        this->lat_axis_free[0] = 0;
-        this->lat_axis_free[1] = 0;
-        this->lat_axis_free[2] = 1;
-    } else if (fixed_axes_in == "ac") {
-        this->lat_axis_free[0] = 0;
-        this->lat_axis_free[1] = 1;
-        this->lat_axis_free[2] = 0;
-    } else if (fixed_axes_in == "bc") {
-        this->lat_axis_free[0] = 1;
-        this->lat_axis_free[1] = 0;
-        this->lat_axis_free[2] = 0;
-    } else if (fixed_axes_in == "abc") {
-        this->lat_axis_free[0] = 0;
-        this->lat_axis_free[1] = 0;
-        this->lat_axis_free[2] = 0;
-    } else {
-        ModuleBase::WARNING_QUIT(
-            "Input",
-            "fixed_axes should be none, volume, shape, a, b, c, ab, ac, bc or abc!");
-    }
-    return;
 }
 
 

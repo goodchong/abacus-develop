@@ -24,38 +24,11 @@ class RadialCollection
     ~RadialCollection();
 
     /// Builds the collection from (orbital) files.
-    void build(const int nfile, const std::string* const file, const char ftype = '\0');
+    void build(const int nfile, const std::string* const file);
 
     /// Builds the collection from Numerical_Nonlocal objects.
     void build(const int ntype, Numerical_Nonlocal* const nls);
 
-    /// Builds the collection from RadialCollection objects and another radius cutoff.
-    void build(const RadialCollection* nls, double radius = 0.0);
-
-    /// builds the collection from quasi hydrogen radial functions
-    void build(const int ntype, 
-               const double* const charges, 
-               const bool with_slater_screening,
-               const int* const nmax, 
-               const std::string* symbols = nullptr,
-               const double conv_thr = 1e-10,
-               const std::string* strategies = nullptr,
-               const int& rank = 0);
-               
-    /// builds the collection from pseudopotential pswfc
-    void build(const int ntype, 
-               const std::string* const file, 
-               const double* const screening_coeff,
-               const double conv_thr = 1e-10,
-               const int& rank = 0);
-
-    /// builds a collection of truncated spherical Bessel functions
-    void build(const int lmax, 
-               const int nbes,
-               const double rcut,
-               const double sigma,
-               const double dr
-               );
 
     /**
      * @name Getters
@@ -126,9 +99,6 @@ class RadialCollection
     /// Sets a spherical Bessel transformers for all RadialSet objects.
     void set_transformer(ModuleBase::SphericalBesselTransformer sbt, const int update = 0);
 
-    /// Sets a common grid for all RadialSet objects.
-    void set_grid(const bool for_r_space, const int ngrid, const double* grid, const char mode = 'i');
-
     /// Sets a common uniform grid for all RadialSet objects.
     void set_uniform_grid(const bool for_r_space,
                           const int ngrid,
@@ -136,16 +106,6 @@ class RadialCollection
                           const char mode = 'i',
                           const bool enable_fft = false);
     ///@}
-
-    /**
-     * @brief export all RadialSet objects to a file in a given format.
-     * 
-     * Supported formats:  
-     * - "abacus_orb" (default): ABACUS Numerical atomic orbital format
-     */
-    void to_file(const std::string& appendix,                ///< file name
-                 const std::string& format = "abacus_orb"    ///< file format
-                 ) const;
 
   private:
     int ntype_ = 0;         ///< number of RadialSet in the collection
@@ -176,15 +136,6 @@ class RadialCollection
     /// Finds the maximum cutoff radius among all RadialSet objects and sets rcut_max_ accordingly.
     void set_rcut_max();
 
-    /**
-     * @brief Returns the file type of a given file.
-     *
-     * RadialCollection might be built from either numerical atomic orbital file ('o') or orbital
-     * parameter (coefficient) ('c') file. This function briefly scans the file to find its type.
-     *
-     * Only rank-0 performs the check; the result is broadcasted to all ranks.
-     */
-    char check_file_type(const std::string& file) const;
 };
 
 #endif

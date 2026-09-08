@@ -18,14 +18,8 @@ bool unitcell::read_atom_positions(UnitCell& ucell,
                          std::ofstream &ofs_running,
                          std::ofstream &ofs_warning,
                          const int nspin,
-                         const std::string& basis_type,
                          const std::string& orbital_dir,
-                         const std::string& init_wfc,
-                         const double onsite_radius,
-                         const bool fixed_atoms,
-                         const bool noncolin,
-                         const std::string& calculation,
-                         const std::string& esolver_type)
+                         const bool noncolin)
 {
     ModuleBase::TITLE("UnitCell","read_atom_positions");
 
@@ -60,8 +54,7 @@ bool unitcell::read_atom_positions(UnitCell& ucell,
             bool set_element_mag_zero = false;
             if (!unitcell::read_atom_type_header(it, ucell, ifpos, ofs_running,
                                        ofs_warning, set_element_mag_zero,
-                                       basis_type, orbital_dir,
-                                       init_wfc, onsite_radius))
+                                       orbital_dir))
             {
                 return false;
             }
@@ -74,27 +67,19 @@ bool unitcell::read_atom_positions(UnitCell& ucell,
                 unitcell::allocate_atom_properties(ucell.atoms[it], na, ucell.atom_mass[it]);
                 for (int ia = 0;ia < na; ia++)
                 {
-                 // modify the reading of frozen ions and velocities  -- Yuanbo Li 2021/8/20
                     ModuleBase::Vector3<double> v;
-                    ModuleBase::Vector3<int> mv;
                     ifpos >> v.x >> v.y >> v.z;
-                    mv.x = true ;
-                    mv.y = true ;
-                    mv.z = true ;
-                    ucell.atoms[it].vel[ia].set(0,0,0);
                     ucell.atoms[it].mag[ia]=ucell.magnet.start_mag[it];
                     //if this line is used, default startmag_type would be 2
                     ucell.atoms[it].angle1[ia]=0;
                     ucell.atoms[it].angle2[ia]=0;
                     ucell.atoms[it].m_loc_[ia].set(0,0,0);
-                    ucell.atoms[it].lambda[ia].set(0,0,0);
-                    ucell.atoms[it].constrain[ia].set(0,0,0);
 
                     bool input_vec_mag=false;
                     bool input_angle_mag=false;
 
                     // Parse optional properties
-                    if (!unitcell::parse_atom_properties(ifpos, ucell.atoms[it], ia, mv,
+                    if (!unitcell::parse_atom_properties(ifpos, ucell.atoms[it], ia,
                                               input_vec_mag, input_angle_mag,
                                               set_element_mag_zero))
                     {
@@ -110,10 +95,6 @@ bool unitcell::read_atom_positions(UnitCell& ucell,
                     unitcell::transform_atom_coordinates(ucell.atoms[it], ia, Coordinate,
                                              v, ucell.latvec, ucell.lat0, ucell.latcenter);
 
-                    // Set movement flags
-                    unitcell::set_atom_movement_flags(ucell.atoms[it], ia, mv,
-                                        fixed_atoms);
-                    ucell.atoms[it].dis[ia].set(0, 0, 0);
                 }//endj
             }    // end na
             // reset some useless parameters
@@ -128,7 +109,6 @@ bool unitcell::read_atom_positions(UnitCell& ucell,
     }   // end scan_begin
 
     // Final validation and output
-    return unitcell::finalize_atom_positions(ucell, ofs_running, ofs_warning,
-                                        calculation, esolver_type);
+    return unitcell::finalize_atom_positions(ucell, ofs_running, ofs_warning);
 
 }//end read_atom_positions

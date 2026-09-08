@@ -28,24 +28,17 @@
 #include "source_base/tool_threading.h"
 #include "source_cell/unitcell.h"
 #include "source_cell/magnetism.h"
-#include "source_hamilt/module_xc/xc_functional.h"
 #include "source_io/module_parameter/parameter.h"
 
 #include <vector>
 
 Charge::Charge()
 {
-    allocate_rho = false;
-    allocate_rho_final_scf = false; // LiuXh add 20180619
 }
 
 Charge::~Charge()
 {
     this->destroy();
-#ifdef __MPI
-    delete[] rec;
-    delete[] dis;
-#endif
 }
 
 void Charge::set_rhopw(ModulePW::PW_Basis* rhopw_in)
@@ -53,44 +46,21 @@ void Charge::set_rhopw(ModulePW::PW_Basis* rhopw_in)
     this->rhopw = rhopw_in;
 }
 
-// mohan add 2025-12-02
-bool Charge::kin_density() const
-{
-	if (XC_Functional::get_ked_flag() || PARAM.inp.out_elf[0] > 0)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
 void Charge::destroy()
 {
-    if (allocate_rho || allocate_rho_final_scf) // LiuXh add 20180619
+    if (allocate_rho)
     {
         delete[] rho;
         delete[] rhog;
-        delete[] rho_save;
-        delete[] rhog_save;
         delete[] rho_core;
         delete[] rhog_core;
         delete[] _space_rho;
-        delete[] _space_rho_save;
         delete[] _space_rhog;
-        delete[] _space_rhog_save;
-        delete[] _space_kin_r;
-        delete[] _space_kin_r_save;
-        if (XC_Functional::get_ked_flag() || PARAM.inp.out_elf[0] > 0)
-        {
-            delete[] kin_r;
-            delete[] kin_r_save;
-        }
+        allocate_rho = false;
     }
 }
 
-void Charge::allocate(const int& nspin_in, const bool kin_den)
+void Charge::allocate(const int nspin_in)
 {
     ModuleBase::TITLE("Charge", "allocate");
 
@@ -100,14 +70,12 @@ void Charge::allocate(const int& nspin_in, const bool kin_den)
 	}
 
     this->nrxx = this->rhopw->nrxx;
-    this->nxyz = this->rhopw->nxyz;
     this->ngmc = this->rhopw->npw;
 
 
     if (allocate_rho == true)
     {
         this->destroy();
-        allocate_rho = false;
     }
 
     assert(allocate_rho == false);
@@ -115,58 +83,21 @@ void Charge::allocate(const int& nspin_in, const bool kin_den)
     //  mohan add 2021-02-20
     this->nspin = nspin_in;
 
-    if (PARAM.inp.test_charge > 1)
-    {
-        std::cout << "\n spin_number = " << nspin << " real_point_number = " << nrxx << std::endl;
-    }
-
     // allocate memory
     _space_rho = new double[nspin * nrxx];
-    _space_rho_save = new double[nspin * nrxx];
     _space_rhog = new std::complex<double>[nspin * ngmc];
-    _space_rhog_save = new std::complex<double>[nspin * ngmc];
-    if(kin_den)
-    {
-        _space_kin_r = new double[nspin * nrxx];
-        _space_kin_r_save = new double[nspin * nrxx];
-    }
     rho = new double*[nspin];
     rhog = new std::complex<double>*[nspin];
-    rho_save = new double*[nspin];
-    rhog_save = new std::complex<double>*[nspin];
-    if(kin_den)
-    {
-        kin_r = new double*[nspin];
-        kin_r_save = new double*[nspin];
-    }
     for (int is = 0; is < nspin; is++)
     {
         rho[is] = _space_rho + is * nrxx;
         rhog[is] = _space_rhog + is * ngmc;
-        rho_save[is] = _space_rho_save + is * nrxx;
-        rhog_save[is] = _space_rhog_save + is * ngmc;
         ModuleBase::GlobalFunc::ZEROS(rho[is], nrxx);
         ModuleBase::GlobalFunc::ZEROS(rhog[is], ngmc);
-        ModuleBase::GlobalFunc::ZEROS(rho_save[is], nrxx);
-        ModuleBase::GlobalFunc::ZEROS(rhog_save[is], ngmc);
-        if(kin_den) 
-        {
-            kin_r[is] = _space_kin_r + is * nrxx;
-            ModuleBase::GlobalFunc::ZEROS(kin_r[is], nrxx);
-            kin_r_save[is] = _space_kin_r_save + is * nrxx;
-            ModuleBase::GlobalFunc::ZEROS(kin_r_save[is], nrxx);
-        }
     }
 
     ModuleBase::Memory::record("Chg::rho", sizeof(double) * nspin * nrxx);
-    ModuleBase::Memory::record("Chg::rho_save", sizeof(double) * nspin * nrxx);
     ModuleBase::Memory::record("Chg::rhog", sizeof(double) * nspin * ngmc);
-    ModuleBase::Memory::record("Chg::rhog_save", sizeof(double) * nspin * ngmc);
-    if(kin_den)
-    {
-        ModuleBase::Memory::record("Chg::kin_r", sizeof(double) * nspin * ngmc);
-        ModuleBase::Memory::record("Chg::kin_r_save", sizeof(double) * nspin * ngmc);
-    }
 
     this->rho_core = new double[nrxx]; // core charge in real space
     ModuleBase::GlobalFunc::ZEROS(rho_core, nrxx);
@@ -358,10 +289,6 @@ void Charge::atomic_rho(const int spin_number_need,
                             ModuleBase::Integral::Simpson_Integral(mesh, rho1d.data(), atom->ncpp.rab.data(), rho_lgl[0]);
                             gstart = 1;
                         }
-                        if (PARAM.inp.test_charge > 0)
-                        {
-                            std::cout << "\n |G|=0 term done." << std::endl;
-                        }
                             //----------------------------------------------------------
                             // Here we compute the G<>0 term
                             // But if in parallel case
@@ -397,15 +324,6 @@ void Charge::atomic_rho(const int spin_number_need,
                                     }
                                 }
                                 ModuleBase::Integral::Simpson_Integral(mesh, rho1d.data(), atom->ncpp.rab.data(), rho_lgl[igg]);
-                            }
-    #ifdef _OPENMP
-    #pragma omp single
-    #endif
-                            {
-                                if (PARAM.inp.test_charge > 0)
-                                {
-                                    std::cout << " |G|>0 term done." << std::endl;
-                                }
                             }
                             //----------------------------------------------------------
                             // EXPLAIN : Complete the transfer of rho from real space to
@@ -655,18 +573,6 @@ void Charge::atomic_rho(const int spin_number_need,
     return;
 }
 
-void Charge::save_rho_before_sum_band()
-{
-    for (int is = 0; is < PARAM.inp.nspin; is++)
-    {
-        ModuleBase::GlobalFunc::DCOPY(rho[is], rho_save[is], this->rhopw->nrxx);
-        if (XC_Functional::get_ked_flag())
-        {
-            ModuleBase::GlobalFunc::DCOPY(kin_r[is], kin_r_save[is], this->rhopw->nrxx);
-        }
-    }
-    return;
-}
 
 double Charge::cal_rho2ne(const double* rho_in) const
 {
@@ -718,51 +624,4 @@ void Charge::check_rho()
             ModuleBase::WARNING("Charge", "Charge is not equal to the number of electrons!");
         }
     }
-}
-
-// LiuXh add 20180619
-void Charge::init_final_scf()
-{
-    ModuleBase::TITLE("Charge", "init_after_scf");
-
-    assert(allocate_rho_final_scf == false);
-    if (PARAM.inp.test_charge > 1)
-    {
-        std::cout << "\n spin_number = " << PARAM.inp.nspin << " real_point_number = " << this->rhopw->nrxx << std::endl;
-    }
-
-    // allocate memory
-    rho = new double*[PARAM.inp.nspin];
-    rhog = new std::complex<double>*[PARAM.inp.nspin];
-    rho_save = new double*[PARAM.inp.nspin];
-    rhog_save = new std::complex<double>*[PARAM.inp.nspin];
-
-    for (int is = 0; is < PARAM.inp.nspin; is++)
-    {
-        rho[is] = new double[this->rhopw->nrxx];
-        rhog[is] = new std::complex<double>[this->rhopw->npw];
-        rho_save[is] = new double[this->rhopw->nrxx];
-        rhog_save[is] = new std::complex<double>[this->rhopw->npw];
-        ModuleBase::GlobalFunc::ZEROS(rho[is], this->rhopw->nrxx);
-        ModuleBase::GlobalFunc::ZEROS(rhog[is], this->rhopw->npw);
-        ModuleBase::GlobalFunc::ZEROS(rho_save[is], this->rhopw->nrxx);
-        ModuleBase::GlobalFunc::ZEROS(rhog_save[is], this->rhopw->npw);
-    }
-
-    ModuleBase::Memory::record("Chg::rho", sizeof(double) * PARAM.inp.nspin * this->rhopw->nrxx);
-    ModuleBase::Memory::record("Chg::rho_save", sizeof(double) * PARAM.inp.nspin * this->rhopw->nrxx);
-    ModuleBase::Memory::record("Chg::rhog", sizeof(double) * PARAM.inp.nspin * this->rhopw->npw);
-    ModuleBase::Memory::record("Chg::rhog_save", sizeof(double) * PARAM.inp.nspin * this->rhopw->npw);
-
-    this->rho_core = new double[this->rhopw->nrxx]; // core charge in real space
-    ModuleBase::GlobalFunc::ZEROS(rho_core, this->rhopw->nrxx);
-
-    this->rhog_core = new std::complex<double>[this->rhopw->npw]; // reciprocal core charge
-    ModuleBase::GlobalFunc::ZEROS(rhog_core, this->rhopw->npw);
-
-    ModuleBase::Memory::record("Chg::rho_core", sizeof(double) * this->rhopw->nrxx);
-    ModuleBase::Memory::record("Chg::rhog_core", sizeof(double) * this->rhopw->npw);
-
-    this->allocate_rho_final_scf = true;
-    return;
 }

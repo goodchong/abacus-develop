@@ -3,19 +3,11 @@
 #include "source_base/global_file.h"
 #include "source_base/memory_recorder.h"
 #include "source_base/timer.h"
-#include "source_esolver/esolver.h"
-#include "source_io/module_output/cal_test.h"
 #include "source_io/module_parameter/input_conv.h"
-#include "source_io/module_json/para_json.h"
-#include "source_io/module_output/print_info.h"
 #include "source_io/module_parameter/read_input.h"
 #include "source_io/module_parameter/parameter.h"
 #include "source_base/version.h"
 #include "source_base/parallel_global.h"
-#ifdef __DSP
-#include "source_base/module_device/memory_op.h"
-#include "source_base/module_external/blas_connector.h"
-#endif
 
 Driver::Driver()
 {
@@ -45,10 +37,10 @@ void Driver::init()
 
     // 6) Print the final time, hopefully it will not cost too long. 
     time_t time_finish = std::time(nullptr);
-    ModuleIO::print_time(time_start, time_finish);
+    GlobalV::ofs_running << " TOTAL WALL TIME: " << std::difftime(time_finish, time_start) << " s\n";
 
     // 7) Clean up: close all of the running logs
-    ModuleBase::Global_File::close_all_log(GlobalV::MY_RANK, PARAM.inp.out_alllog,PARAM.inp.calculation);
+    ModuleBase::Global_File::close_all_log(GlobalV::MY_RANK);
 
 }
 
@@ -72,10 +64,8 @@ void Driver::print_start_info()
     GlobalV::ofs_running << "                                                  "
                             "                                   "
                          << std::endl;
-    GlobalV::ofs_running << "                              ABACUS " << version << std::endl << std::endl;
-    GlobalV::ofs_running << "               Atomic-orbital Based Ab-initio "
-                            "Computation at UStc                    "
-                         << std::endl
+    GlobalV::ofs_running << "                         ABACUS H0 " << version << std::endl << std::endl;
+    GlobalV::ofs_running << "              One-shot LCAO initial-Hamiltonian generator" << std::endl
                          << std::endl;
     GlobalV::ofs_running << "                     Website: http://abacus.ustc.edu.cn/           "
                             "                  "
@@ -126,19 +116,6 @@ void Driver::reading()
     ModuleBase::set_quit_out_dir(PARAM.globalv.global_out_dir);
     ModuleBase::set_quit_calculation(PARAM.inp.calculation);
 
-#if defined(__CUDA) && defined(__USE_NVTX)
-    ModuleBase::timer::set_nvtx_enabled(PARAM.inp.timer_enable_nvtx);
-#endif
-
-#ifdef __DSP
-    if (PARAM.inp.dsp_count <= 0)
-    {
-        ModuleBase::WARNING_QUIT("driver", "dsp_count must be > 0");
-    }
-    base_device::memory::set_dsp_cluster_id(GlobalV::MY_RANK % PARAM.inp.dsp_count);
-    BlasConnector::set_dsp_cluster_id(GlobalV::MY_RANK % PARAM.inp.dsp_count);
-#endif
-
     // (2) create the output directory, running_*.log and print info
     input.create_directory(PARAM);
     this->print_start_info();
@@ -152,13 +129,13 @@ void Driver::reading()
     Input_Conv::Convert();
 
     // (4) define the 'DIAGONALIZATION' world in MPI
-    Parallel_Global::split_diag_world(PARAM.inp.diago_proc,
+    Parallel_Global::split_diag_world(GlobalV::NPROC,
                                       GlobalV::NPROC,
                                       GlobalV::MY_RANK,
                                       GlobalV::DRANK,
                                       GlobalV::DSIZE,
                                       GlobalV::DCOLOR);
-    Parallel_Global::split_grid_world(PARAM.inp.diago_proc,
+    Parallel_Global::split_grid_world(GlobalV::NPROC,
                                       GlobalV::NPROC,
                                       GlobalV::MY_RANK,
                                       GlobalV::GRANK,
@@ -174,7 +151,7 @@ void Driver::reading()
     // parallelization.
     Parallel_Global::init_pools(GlobalV::NPROC,
                                 GlobalV::MY_RANK,
-                                PARAM.inp.bndpar,
+                                1,
                                 GlobalV::KPAR,
                                 GlobalV::NPROC_IN_BNDGROUP,
                                 GlobalV::RANK_IN_BPGROUP,

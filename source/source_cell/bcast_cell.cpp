@@ -35,7 +35,6 @@ namespace unitcell
         MPI_Barrier(MPI_COMM_WORLD);
         // distribute lattice parameters.
         ModuleBase::Matrix3& latvec = lat.latvec;
-        ModuleBase::Matrix3& latvec_supercell = lat.latvec_supercell;
         Parallel_Common::bcast_string(lat.Coordinate);
         Parallel_Common::bcast_double(lat.lat0);
         Parallel_Common::bcast_double(lat.lat0_angstrom);
@@ -62,21 +61,7 @@ namespace unitcell
             Parallel_Common::bcast_double(lat.a2[i]);
             Parallel_Common::bcast_double(lat.a3[i]);
             Parallel_Common::bcast_double(lat.latcenter[i]);
-            Parallel_Common::bcast_int(lat.lat_axis_free[i]);
         }
-
-        // distribute superlattice vectors.
-        Parallel_Common::bcast_double(latvec_supercell.e11);
-        Parallel_Common::bcast_double(latvec_supercell.e12);
-        Parallel_Common::bcast_double(latvec_supercell.e13);
-        Parallel_Common::bcast_double(latvec_supercell.e21);
-        Parallel_Common::bcast_double(latvec_supercell.e22);
-        Parallel_Common::bcast_double(latvec_supercell.e23);
-        Parallel_Common::bcast_double(latvec_supercell.e31);
-        Parallel_Common::bcast_double(latvec_supercell.e32);
-        Parallel_Common::bcast_double(latvec_supercell.e33);
-
-        // distribute Change the lattice vectors or not
     #endif
     }
     

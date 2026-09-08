@@ -1,30 +1,14 @@
 #ifndef _PARALLEL_ORBITALS_H_
 #define _PARALLEL_ORBITALS_H_
 #include "source_base/parallel_2d.h"
-#include <fstream>
 #include <vector>
 
-/// This class packs the information of 2D-block-cyclic for LCAO code:
-/// parallel distribution of basis, wavefunction and matrix.
+/// 2D block-cyclic distribution and atom traces for the LCAO H(R) matrix.
 class Parallel_Orbitals : public Parallel_2D
 {
 public:
     Parallel_Orbitals();
     ~Parallel_Orbitals();
-
-    /// local size of bands, used for 2d wavefunction
-    /// must divided on dim1 because of elpa interface
-    int ncol_bands;
-    int nrow_bands;
-    
-    /// ncol_bands*nrow
-    long nloc_wfc;
-
-    //ncol_bands*ncol_bands
-    long nloc_Eij;
-
-    int lastband_in_proc;
-    int lastband_number; 
 
     ///-------------------------------------
     /// number of elements(basis-pairs) in this processon
@@ -34,25 +18,6 @@ public:
 	std::vector<int> nlocdim;
 	std::vector<int> nlocstart;
     
-#ifdef __MPI
-    int desc_wfc[9]; //for wfc, nlocal*nbands
-    int desc_Eij[9]; // for Eij in TDDFT, nbands*nbands
-    int desc_wfc1[9]; // for wfc^T in TDDFT, nbands*nlocal
-
-    /// set the local size of wavefunction and Eij
-    int set_nloc_wfc_Eij(const int& N_A/**< global row size*/,
-        std::ofstream& ofs_running,
-        std::ofstream& ofs_warning);
-
-    ///@brief set the desc[9] of the 2D-block-cyclic distribution of wavefunction and Eij
-    void set_desc_wfc_Eij(const int& nbasis,
-        const int& nbands,
-        const int& lld);
-#endif
-
-    int get_wfc_global_nbands () const;
-    int get_wfc_global_nbasis () const;
-
     /**
      * @brief set row and col begin index for each atom
      * it should be called after:
@@ -75,10 +40,6 @@ public:
     int get_nrow_atom(int iat) const;
 
     bool is_invalid_atom_pair(int iat1, int iat2) const;
-
-    int get_nbands() const;
-
-    int nbands;
 
     /**
      * @brief gather global indexes of orbitals in this processor

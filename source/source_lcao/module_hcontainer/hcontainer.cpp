@@ -30,7 +30,6 @@ HContainer<T>::HContainer(const HContainer<T>& HR_in, T* data_array)
 {
     this->sparse_ap = HR_in.sparse_ap;
     this->sparse_ap_index = HR_in.sparse_ap_index;
-    this->gamma_only = HR_in.gamma_only;
     this->paraV = HR_in.paraV;
     this->current_R = -1;
     this->wrapper_pointer = data_array;
@@ -52,7 +51,6 @@ HContainer<T>::HContainer(HContainer<T>&& HR_in) noexcept
     this->sparse_ap = std::move(HR_in.sparse_ap);
     this->sparse_ap_index = std::move(HR_in.sparse_ap_index);
     this->wrapper_pointer = HR_in.wrapper_pointer;
-    this->gamma_only = HR_in.gamma_only;
     this->paraV = HR_in.paraV;
     this->allocated = HR_in.allocated;
     this->allocated_size = HR_in.allocated_size;
@@ -73,7 +71,6 @@ HContainer<T>& HContainer<T>::operator=(HContainer<T>&& HR_in) noexcept
         this->sparse_ap = std::move(HR_in.sparse_ap);
         this->sparse_ap_index = std::move(HR_in.sparse_ap_index);
         this->wrapper_pointer = HR_in.wrapper_pointer;
-        this->gamma_only = HR_in.gamma_only;
         this->paraV = HR_in.paraV;
         this->allocated = HR_in.allocated;
         this->allocated_size = HR_in.allocated_size;
@@ -90,7 +87,6 @@ HContainer<T>& HContainer<T>::operator=(HContainer<T>&& HR_in) noexcept
 template <typename T>
 HContainer<T>::HContainer(int natom)
 {
-    this->gamma_only = false;
     this->current_R = -1;
     this->sparse_ap.resize(natom);
     this->sparse_ap_index.resize(natom);
@@ -101,7 +97,6 @@ HContainer<T>::HContainer(int natom)
 template <typename T>
 HContainer<T>::HContainer(const UnitCell& ucell_, const Parallel_Orbitals* paraV)
 {
-    this->gamma_only = false;
     this->current_R = -1;
     this->allocated_size = 0;
     std::vector<int> atom_begin_row(ucell_.nat+1, 0);
@@ -273,14 +268,7 @@ const BaseMatrix<T>* HContainer<T>::find_matrix(int atom_i, int atom_j, int rx, 
     }
     else
     {
-        if(this->gamma_only)
-        {
-            return tmp->find_matrix(0, 0, 0);
-        }
-        else
-        {
-            return tmp->find_matrix(rx, ry, rz);
-        }
+        return tmp->find_matrix(rx, ry, rz);
     }
 }
 
@@ -294,14 +282,7 @@ BaseMatrix<T>* HContainer<T>::find_matrix(int atom_i, int atom_j, int rx, int ry
     }
     else
     {
-        if(this->gamma_only)
-        {
-            return tmp->find_matrix(0, 0, 0);
-        }
-        else
-        {
-            return tmp->find_matrix(rx, ry, rz);
-        }
+        return tmp->find_matrix(rx, ry, rz);
     }
 }
 
@@ -315,14 +296,7 @@ BaseMatrix<T>* HContainer<T>::find_matrix(int atom_i, int atom_j, const ModuleBa
     }
     else
     {
-        if(this->gamma_only)
-        {
-            return tmp->find_matrix(0, 0, 0);
-        }
-        else
-        {
-            return tmp->find_matrix(R_index);
-        }
+        return tmp->find_matrix(R_index);
     }
 }
 
@@ -336,14 +310,7 @@ const BaseMatrix<T>* HContainer<T>::find_matrix(int atom_i, int atom_j,const Mod
     }
     else
     {
-        if(this->gamma_only)
-        {
-            return tmp->find_matrix(0, 0, 0);
-        }
-        else
-        {
-            return tmp->find_matrix(R_index);
-        }
+        return tmp->find_matrix(R_index);
     }
 }
 
@@ -559,29 +526,6 @@ void HContainer<T>::unfix_R() const
     this->tmp_atom_pairs.shrink_to_fit();
 }
 
-// fix_gamma
-template <typename T>
-void HContainer<T>::fix_gamma()
-{
-    // every AtomPair in this->atom_pairs has the (0, 0, 0) cell index
-    // fix every AtomPair in this->atom_pairs to only center cell
-    this->gamma_only = true;
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-    for (int it =0; it< this->atom_pairs.size(); ++it)
-    {
-        this->atom_pairs[it].merge_to_gamma();
-    }
-    // in gamma_only case, R_index is not needed, tmp_R_index should be empty
-    if (this->current_R != -1)
-    {
-        this->current_R = -1;
-        this->tmp_R_index.clear();
-        this->tmp_R_index.shrink_to_fit();
-    }
-}
-
 // find_R
 template <typename T>
 int HContainer<T>::find_R(const int& rx_in, const int& ry_in, const int& rz_in) const
@@ -738,7 +682,7 @@ void HContainer<T>::insert_pair(const AtomPair<T>& atom_ij)
     if (it != this->sparse_ap[atom_i].end() && *it == atom_j)
     {
         // 2. merge atom_ij
-        this->atom_pairs[this->sparse_ap_index[atom_i][it-this->sparse_ap[atom_i].begin()]].merge(atom_ij, this->gamma_only);
+        this->atom_pairs[this->sparse_ap_index[atom_i][it-this->sparse_ap[atom_i].begin()]].merge(atom_ij);
     }
     else
     {
@@ -751,11 +695,6 @@ void HContainer<T>::insert_pair(const AtomPair<T>& atom_ij)
         else
         { //insert atom_ij, and set paraV pointer for HContainer if atom_ij has paraV pointer
             this->atom_pairs.push_back(atom_ij);
-            //if gamma_only case, merge atom_ij to gamma_only
-            if(this->gamma_only)
-            {
-                this->atom_pairs.back().merge_to_gamma();
-            }
             // update sparse_ap
             int index = it - this->sparse_ap[atom_i].begin();
             if(it != this->sparse_ap[atom_i].end())
@@ -784,13 +723,6 @@ template <typename T>
 int HContainer<T>::get_current_R() const
 {
     return this->current_R;
-}
-
-//is_gamma_only
-template <typename T>
-bool HContainer<T>::is_gamma_only() const
-{
-    return this->gamma_only;
 }
 
 //get_memory_size

@@ -1,9 +1,9 @@
 #include "gint_common.h"
+#include "source_base/timer.h"
 #include "source_lcao/module_hcontainer/hcontainer.h"
 #include "source_lcao/module_hcontainer/hcontainer_funcs.h"
 #include "source_io/module_parameter/parameter.h"
 #include "source_base/tool_quit.h"
-#include <type_traits>
 
 #ifdef __MPI
 #include "source_base/module_external/blacs_connector.h"
@@ -12,68 +12,6 @@
 
 namespace ModuleGint
 {
-
-template<typename Tout, typename Tin>
-void cast_hcontainer_values(const HContainer<Tin>& src, HContainer<Tout>& dst)
-{
-    if (src.get_ijr_info() != dst.get_ijr_info()
-        || src.is_gamma_only() != dst.is_gamma_only()
-        || src.get_nnr() != dst.get_nnr())
-    {
-        ModuleBase::WARNING_QUIT("cast_hcontainer_values", "Source and destination HContainer shapes do not match.");
-    }
-
-    const Tin* src_values = src.get_wrapper();
-    Tout* dst_values = dst.get_wrapper();
-    if (src_values == nullptr || dst_values == nullptr)
-    {
-        ModuleBase::WARNING_QUIT("cast_hcontainer_values", "HContainer data buffer is not allocated.");
-    }
-
-    const size_t nnr = src.get_nnr();
-    for (size_t i = 0; i < nnr; ++i)
-    {
-        dst_values[i] = static_cast<Tout>(src_values[i]);
-    }
-}
-
-template<typename Tout, typename Tin>
-HContainer<Tout> make_cast_hcontainer(const HContainer<Tin>& src)
-{
-    const auto ijr_info = src.get_ijr_info();
-
-    if (src.get_paraV() != nullptr)
-    {
-        HContainer<Tout> dst(src.get_paraV(), nullptr, &ijr_info);
-        if (src.is_gamma_only())
-        {
-            dst.fix_gamma();
-        }
-        cast_hcontainer_values(src, dst);
-        return dst;
-    }
-
-    HContainer<Tout> dst(static_cast<int>(src.get_sparse_ap().size()));
-    if (src.is_gamma_only())
-    {
-        dst.fix_gamma();
-    }
-    for (int iap = 0; iap < src.size_atom_pairs(); ++iap)
-    {
-        const auto& src_ap = src.get_atom_pair(iap);
-        hamilt::AtomPair<Tout> dst_ap(src_ap.get_atom_i(), src_ap.get_atom_j());
-        dst_ap.set_size(src_ap.get_col_size(), src_ap.get_row_size());
-        for (int ir = 0; ir < src_ap.get_R_size(); ++ir)
-        {
-            const auto r_index = src_ap.get_R_index(ir);
-            dst_ap.get_HR_values(r_index.x, r_index.y, r_index.z);
-        }
-        dst.insert_pair(dst_ap);
-    }
-    dst.allocate(nullptr, false);
-    cast_hcontainer_values(src, dst);
-    return dst;
-}
 
 template<typename T>
 void compose_hr_gint(HContainer<T>& hr_gint)
@@ -179,7 +117,9 @@ void merge_hr_part_to_hR(const std::vector<hamilt::HContainer<double>>& hr_gint_
     std::vector<int> clx_j = {0, -1, 1, 0};
     for (int is = 0; is < 4; is++){
         if(!PARAM.globalv.domag && (is==1 || is==2)) continue;
+#ifdef __MPI
         hR_tmp->set_zero();
+#endif
         hamilt::HContainer<std::complex<double>>* hRGint_tmpCd = new hamilt::HContainer<std::complex<double>>(ucell_in->nat);
         hRGint_tmpCd->insert_ijrs( &(gint_info.get_ijr_info()), *(ucell_in));
         hRGint_tmpCd->allocate(nullptr, true);
@@ -242,11 +182,19 @@ void merge_hr_part_to_hR(const std::vector<hamilt::HContainer<double>>& hr_gint_
             const int iat1 = ap->get_atom_i();
             const int iat2 = ap->get_atom_j();
             auto* ap_nspin = hR_tmp ->find_pair(iat1, iat2);
+            if (ap_nspin == nullptr)
+            {
+                continue;
+            }
             for (int ir = 0; ir < ap->get_R_size(); ir++)
             {   
                 const auto R_index = ap->get_R_index(ir);
                 auto upper_mat = ap->find_matrix(R_index);
                 auto mat_nspin = ap_nspin->find_matrix(R_index);
+                if (mat_nspin == nullptr)
+                {
+                    continue;
+                }
                 // The row size and the col size of upper_matrix is double that of matrix_nspin_0
                 for (int irow = 0; irow < mat_nspin->get_row_size(); ++irow)
                 {
@@ -260,231 +208,16 @@ void merge_hr_part_to_hR(const std::vector<hamilt::HContainer<double>>& hr_gint_
         }
         delete hRGint_tmpCd;
     }
+#ifdef __MPI
+    delete hR_tmp;
+    delete pv;
+#endif
     ModuleBase::timer::end("Gint_k", "transfer_pvpR");
     return;
 }
 
 
 
-// C++11-compatible helpers for dm_2d_to_gint:
-// SFINAE (enable_if) to select same-type vs cross-type code paths at compile time.
-
-// Same-type path (TGint == TDM): transfer directly
-template<typename TGint, typename TDM>
-typename std::enable_if<std::is_same<TGint, TDM>::value>::type
-gather_dm(const HContainer<TDM>& dm_src, HContainer<TGint>& dm_dst,
-          const GintInfo& /*gint_info*/)
-{
-#ifdef __MPI
-    hamilt::transferParallels2Serials(dm_src, &dm_dst);
-#else
-    dm_dst.set_zero();
-    dm_dst.add(dm_src);
-#endif
-}
-
-// Cross-type path (TGint != TDM): gather into a temp of TDM, then cast
-template<typename TGint, typename TDM>
-typename std::enable_if<!std::is_same<TGint, TDM>::value>::type
-gather_dm(const HContainer<TDM>& dm_src, HContainer<TGint>& dm_dst,
-          const GintInfo& gint_info)
-{
-    HContainer<TDM> dm_tmp = gint_info.get_hr<TDM>();
-#ifdef __MPI
-    hamilt::transferParallels2Serials(dm_src, &dm_tmp);
-#else
-    dm_tmp.set_zero();
-    dm_tmp.add(dm_src);
-#endif
-    cast_hcontainer_values(dm_tmp, dm_dst);
-}
-
-// gint_info should not have been a parameter, but it was added to initialize dm_gint_full
-// In the future, we might try to remove the gint_info parameter
-template<typename TGint, typename TDM>
-void dm_2d_to_gint(
-    const GintInfo& gint_info,
-    const std::vector<HContainer<TDM>*>& dm,
-    std::vector<HContainer<TGint>>& dm_gint)
-{
-    ModuleBase::TITLE("Gint", "dm_2d_to_gint");
-    ModuleBase::timer::start("Gint", "dm_2d_to_gint");
-
-    if (PARAM.inp.nspin != 4)
-    {
-        // dm_gint.size() usually equals to PARAM.inp.nspin,
-        // but there is exception within source_lcao/module_lr
-        for (int is = 0; is < dm_gint.size(); is++)
-        {
-            gather_dm(*dm[is], dm_gint[is], gint_info);
-        }
-    } else  // NSPIN=4 case
-    {
-
-        // is=0:↑↑, 1:↑↓, 2:↓↑, 3:↓↓
-        const int row_set[4] = {0, 0, 1, 1};
-        const int col_set[4] = {0, 1, 0, 1};
-        int mg = dm[0]->get_paraV()->get_global_row_size()/2;
-        int ng = dm[0]->get_paraV()->get_global_col_size()/2;
-        int nb = dm[0]->get_paraV()->get_block_size()/2;
-        const UnitCell* ucell = gint_info.get_ucell();
-        auto ijr_info = dm[0]->get_ijr_info();
-#ifdef __MPI
-        int blacs_ctxt = dm[0]->get_paraV()->blacs_ctxt;
-        std::vector<int> iat2iwt(ucell->nat);
-        for (int iat = 0; iat < ucell->nat; iat++) {
-            iat2iwt[iat] = ucell->get_iat2iwt()[iat]/2;
-        }
-        Parallel_Orbitals pv{};
-        pv.set(mg, ng, nb, blacs_ctxt);
-        pv.set_atomic_trace(iat2iwt.data(), ucell->nat, mg);
-        HContainer<TDM> dm2d_tmp(&pv, nullptr, &ijr_info);
-#else
-        auto* dm2d_tmp = new hamilt::HContainer<TDM>(ucell->nat);
-        dm2d_tmp -> insert_ijrs(&ijr_info, *ucell);
-        dm2d_tmp -> allocate(nullptr, true);
-#endif
-         for (int is = 0; is < 4; is++){
-            for (int iap = 0; iap < dm[0]->size_atom_pairs(); ++iap) {
-                auto& ap = dm[0]->get_atom_pair(iap);
-                int iat1 = ap.get_atom_i();
-                int iat2 = ap.get_atom_j();
-                for (int ir = 0; ir < ap.get_R_size(); ++ir) {
-                    const ModuleBase::Vector3<int> r_index = ap.get_R_index(ir);
-#ifdef __MPI
-                    TDM* matrix_out = dm2d_tmp.find_matrix(iat1, iat2, r_index)->get_pointer();
-#else
-                    TDM* matrix_out = dm2d_tmp->find_matrix(iat1, iat2, r_index)->get_pointer();
-#endif
-                    TDM* matrix_in = ap.get_pointer(ir);
-                    for (int irow = 0; irow < ap.get_row_size()/2; irow ++) {
-                        for (int icol = 0; icol < ap.get_col_size()/2; icol ++) {
-                            int index_i = irow* ap.get_col_size()/2 + icol;
-                            int index_j = (irow*2+row_set[is]) * ap.get_col_size() + icol*2+col_set[is];
-                            matrix_out[index_i] = matrix_in[index_j];
-                        }
-                    }
-                }
-            }
-#ifdef __MPI
-            gather_dm(dm2d_tmp, dm_gint[is], gint_info);
-#else
-            gather_dm(*dm2d_tmp, dm_gint[is], gint_info);
-#endif
-        }//is=4
-#ifndef __MPI
-        delete dm2d_tmp;
-#endif
-    }
-    ModuleBase::timer::end("Gint", "dm_2d_to_gint");
-}
-
-int globalIndex(int localindex, int nblk, int nprocs, int myproc)
-{
-    const int iblock = localindex / nblk;
-    const int gIndex = (iblock * nprocs + myproc) * nblk + localindex % nblk;
-    return gIndex;
-}
-
-int localIndex(int globalindex, int nblk, int nprocs, int& myproc)
-{
-    myproc = int((globalindex % (nblk * nprocs)) / nblk);
-    return int(globalindex / (nblk * nprocs)) * nblk + globalindex % nblk;
-}
-
-template <typename T>
-void wfc_2d_to_gint(const T* wfc_2d,
-                    int nbands,  // needed if MPI is disabled
-                    int nlocal,  // needed if MPI is disabled
-                    const Parallel_Orbitals& pv,
-                    T* wfc_gint,
-                    const GintInfo& gint_info)
-{
-    ModuleBase::TITLE("Gint", "wfc_2d_to_gint");
-    ModuleBase::timer::start("Gint", "wfc_2d_to_gint");
-
-#ifdef __MPI
-    // dimension related
-    nlocal = pv.desc_wfc[2];
-    nbands = pv.desc_wfc[3];
-
-    const std::vector<int>& trace_lo = gint_info.get_trace_lo();
-
-    // MPI and memory related
-    const int mem_stride = 1;
-    int mpi_info = 0;
-
-    // get the rank of the current process
-    int rank = 0;
-    MPI_Comm_rank(pv.comm(), &rank);
-
-    // calculate the maximum number of nlocal over all processes in pv.comm() range
-    long buf_size = 0;
-    mpi_info = MPI_Reduce(&pv.nloc_wfc, &buf_size, 1, MPI_LONG, MPI_MAX, 0, pv.comm());
-    mpi_info = MPI_Bcast(&buf_size, 1, MPI_LONG, 0, pv.comm()); // get and then broadcast
-    std::vector<T> wfc_block(buf_size);
-
-    // this quantity seems to have the value returned by function numroc_ in ScaLAPACK?
-    int naroc[2];
-
-    // for BLACS broadcast
-    char scope = 'A';
-    char top = ' ';
-
-    // loop over all processors
-    for (int iprow = 0; iprow < pv.dim0; ++iprow)
-    {
-        for (int ipcol = 0; ipcol < pv.dim1; ++ipcol)
-        {
-            if (pv.blacs_in_this_processor(iprow, ipcol))
-            {
-                BlasConnector::copy(pv.nloc_wfc, wfc_2d, mem_stride, wfc_block.data(), mem_stride);
-                naroc[0] = pv.nrow;
-                naroc[1] = pv.ncol_bands;
-                Cxgebs2d(pv.blacs_ctxt, &scope, &top, 2, 1, naroc, 2);
-                Cxgebs2d(pv.blacs_ctxt, &scope, &top, buf_size, 1, wfc_block.data(), buf_size);
-            }
-            else
-            {
-                Cxgebr2d(pv.blacs_ctxt, &scope, &top, 2, 1, naroc, 2, iprow, ipcol);
-                Cxgebr2d(pv.blacs_ctxt, &scope, &top, buf_size, 1, wfc_block.data(), buf_size, iprow, ipcol);
-            }
-
-            // then use it to set the wfc_grid.
-            const int nb = pv.nb;
-            const int dim0 = pv.dim0;
-            const int dim1 = pv.dim1;
-            for (int j = 0; j < naroc[1]; ++j)
-            {
-                int igcol = globalIndex(j, nb, dim1, ipcol);
-                if (igcol >= PARAM.inp.nbands)
-                {
-                    continue;
-                }
-                for (int i = 0; i < naroc[0]; ++i)
-                {
-                    int igrow = globalIndex(i, nb, dim0, iprow);
-                    int mu_local = trace_lo[igrow];
-                    if (wfc_gint && mu_local >= 0)
-                    {
-                        wfc_gint[igcol * nlocal + mu_local] = wfc_block[j * naroc[0] + i];
-                    }
-                }
-            }
-            // this operation will let all processors have the same wfc_grid
-        }
-    }
-#else
-    for (int i = 0; i < nbands; ++i)
-    {
-        for (int j = 0; j < nlocal; ++j)
-        {
-            wfc_gint[i * nlocal + j] = wfc_2d[i * nlocal + j];
-        }
-    }
-#endif
-    ModuleBase::timer::end("Gint", "wfc_2d_to_gint");
-}
 
 template void compose_hr_gint(HContainer<double>& hr_gint);
 template void compose_hr_gint(HContainer<float>& hr_gint);
@@ -494,38 +227,4 @@ template void hr_gint_to_hR(
 template void hr_gint_to_hR(
     const HContainer<std::complex<double>>& hr_gint,
     HContainer<std::complex<double>>& hR);
-template void cast_hcontainer_values(
-    const HContainer<double>& src,
-    HContainer<float>& dst);
-template void cast_hcontainer_values(
-    const HContainer<float>& src,
-    HContainer<double>& dst);
-template HContainer<float> make_cast_hcontainer(const HContainer<double>& src);
-template HContainer<double> make_cast_hcontainer(const HContainer<float>& src);
-template void dm_2d_to_gint(
-    const GintInfo& gint_info,
-    const std::vector<HContainer<double>*>& dm,
-    std::vector<HContainer<double>>& dm_gint);
-template void dm_2d_to_gint(
-    const GintInfo& gint_info,
-    const std::vector<HContainer<double>*>& dm,
-    std::vector<HContainer<float>>& dm_gint);
-template void dm_2d_to_gint(
-    const GintInfo& gint_info,
-    const std::vector<HContainer<std::complex<double>>*>& dm,
-    std::vector<HContainer<std::complex<double>>>& dm_gint);
-template void wfc_2d_to_gint(
-    const double* wfc_2d,
-    int nbands,
-    int nlocal,
-    const Parallel_Orbitals& pv,
-    double* wfc_grid,
-    const GintInfo& gint_info);
-template void wfc_2d_to_gint(
-    const std::complex<double>* wfc_2d,
-    int nbands,
-    int nlocal,
-    const Parallel_Orbitals& pv,
-    std::complex<double>* wfc_grid,
-    const GintInfo& gint_info);
 }

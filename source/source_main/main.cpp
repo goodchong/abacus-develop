@@ -40,7 +40,7 @@ void print_welcome_banner()
               << std::endl
               << "                                " << version << std::endl
               << std::endl
-              << "               Atomic-orbital Based Ab-initio Computation at UStc                    "
+              << "                     One-shot LCAO H0 matrix generator                            "
               << std::endl
               << std::endl
               << "                     Website: http://abacus.ustc.edu.cn/                             "

@@ -4,6 +4,7 @@
 
 #include "source_base/module_external/blas_connector.h"
 #include "source_base/global_function.h"
+#include "source_base/tool_quit.h"
 #ifdef __MPI
 #include <mpi.h>
 
@@ -22,7 +23,15 @@ HTransPara<T>::HTransPara(int n_processes, HContainer<T>* hr_in)
     this->hr = hr_in;
     this->ap_indexes.resize(n_processes);
     this->size_values.resize(n_processes);
-    this->paraV = hr_in->get_atom_pair(0).get_paraV();
+    // The container owns the distribution metadata.  Individual AtomPairs can
+    // originate from a union with a serial Gint container, so using the first
+    // pair as the authority can yield a null pointer even though the parallel
+    // destination itself is valid.
+    this->paraV = hr_in->get_paraV();
+    if (this->paraV == nullptr)
+    {
+        ModuleBase::WARNING_QUIT("HTransPara", "Parallel HContainer has no Parallel_Orbitals metadata.");
+    }
     this->atom_i_index.resize(n_processes);
 }
 

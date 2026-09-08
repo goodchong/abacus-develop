@@ -7,7 +7,6 @@
 #include "source_lcao/module_operator_lcao/operator_lcao.h"
 #include "source_lcao/module_hcontainer/hcontainer.h"
 
-#include <array>
 #include <unordered_map>
 #include <vector>
 
@@ -17,11 +16,6 @@ namespace hamilt
 #ifndef __NONLOCALNEWTEMPLATE
 #define __NONLOCALNEWTEMPLATE
 
-/// The Nonlocal class template inherits from class T
-/// it is used to calculate the non-local pseudopotential of wavefunction basis
-/// Template parameters:
-/// - T: base class, it would be OperatorLCAO<TK> or OperatorPW<TK>
-/// - TR: data type of real space Hamiltonian, it would be double or std::complex<double>
 template <class T>
 class Nonlocal : public T
 {
@@ -30,19 +24,13 @@ class Nonlocal : public T
 #endif
 
 /// Nonlocal class template specialization for OperatorLCAO<TK> base class
-/// It is used to calculate the non-local pseudopotential matrix in real space and fold it to k-space
+/// It is used to calculate the non-local pseudopotential matrix in real space.
 /// HR = <psi_{mu, 0}|beta_p1>D_{p1, p2}<beta_p2|psi_{nu, R}>
-/// HK = <psi_{mu, k}|beta_p1>D_{p1, p2}<beta_p2|psi_{nu, k}> = \sum_{R} e^{ikR} HR
-/// Template parameters:
-/// - TK: data type of k-space Hamiltonian
-/// - TR: data type of real space Hamiltonian
 template <typename TK, typename TR>
 class Nonlocal<OperatorLCAO<TK, TR>> : public OperatorLCAO<TK, TR>
 {
   public:
-    Nonlocal<OperatorLCAO<TK, TR>>(HS_Matrix_K<TK>* hsk_in,
-                                      const std::vector<ModuleBase::Vector3<double>>& kvec_d_in,
-                                      hamilt::HContainer<TR>* hR_in,
+    Nonlocal<OperatorLCAO<TK, TR>>(hamilt::HContainer<TR>* hR_in,
                                       const UnitCell* ucell_in,
                                       const std::vector<double>& orb_cutoff,
                                       const Grid_Driver* GridD_in,
@@ -53,18 +41,7 @@ class Nonlocal<OperatorLCAO<TK, TR>> : public OperatorLCAO<TK, TR>
      * @brief contributeHR() is used to calculate the HR matrix
      * <phi_{\mu, 0}|beta_p1>D_{p1, p2}<beta_p2|phi_{\nu, R}>
      */
-    virtual void contributeHR() override;
-
-    void cal_force_stress(const bool cal_force,
-                          const bool cal_stress,
-                          const HContainer<TR>* dmR,
-                          ModuleBase::matrix& force,
-                          ModuleBase::matrix& stress);
-
-    // per-atom-I derivative d<phi|V^NL|phi>/dtau_I; one HContainer per atom I (size nat each)
-    void cal_dH(std::array<std::vector<hamilt::HContainer<double>*>, 3>& dhR);
-
-    virtual void set_HR_fixed(void*) override;
+    void contributeHR() override;
 
   private:
     const UnitCell* ucell = nullptr;
@@ -106,32 +83,6 @@ class Nonlocal<OperatorLCAO<TK, TR>> : public OperatorLCAO<TK, TR>
                     TR* data_pointer);
 
     const Grid_Driver* gridD = nullptr;
-
-    /**
-     * @brief calculate the atomic Force of <I,J,R> atom pair
-     */
-    void cal_force_IJR(const int& iat1,
-                       const int& iat2,
-                       const int& T0,
-                       const Parallel_Orbitals* paraV,
-                       const std::unordered_map<int, std::vector<double>>& nlm1_all,
-                       const std::unordered_map<int, std::vector<double>>& nlm2_all,
-                       const hamilt::BaseMatrix<TR>* dmR_pointer,
-                       double* force1,
-                       double* force2);
-    /**
-     * @brief calculate the Stress of <I,J,R> atom pair
-     */
-    void cal_stress_IJR(const int& iat1,
-                        const int& iat2,
-                        const int& T0,
-                        const Parallel_Orbitals* paraV,
-                        const std::unordered_map<int, std::vector<double>>& nlm1_all,
-                        const std::unordered_map<int, std::vector<double>>& nlm2_all,
-                        const hamilt::BaseMatrix<TR>* dmR_pointer,
-                        const ModuleBase::Vector3<double>& dis1,
-                        const ModuleBase::Vector3<double>& dis2,
-                        double* stress);
 
     std::vector<AdjacentAtomInfo> adjs_all;
 };

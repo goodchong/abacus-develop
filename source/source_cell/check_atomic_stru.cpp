@@ -1,5 +1,6 @@
 #include "check_atomic_stru.h"
 
+#include "source_base/constants.h"
 #include "source_base/element_covalent_radius.h"
 #include "source_base/timer.h"
 

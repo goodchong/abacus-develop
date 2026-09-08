@@ -72,10 +72,6 @@ class GintInfo
     HContainer<T> get_hr(int npol = 1) const
     {
         auto hr = HContainer<T>(ucell_->nat);
-        if(PARAM.inp.gamma_only)
-        {
-            hr.fix_gamma();
-        }
         hr.insert_ijrs(&ijr_info_, *ucell_, npol);
         hr.allocate(nullptr, true);
         return hr;

@@ -1,3 +1,0 @@
-scf_out_hr_npz
-scf_out_hsr_npz
-scf_out_dm_npz

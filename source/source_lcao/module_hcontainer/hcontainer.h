@@ -123,21 +123,6 @@ namespace hamilt
  *           }
  *       }
  *     ```
- *    c. loop atom-pairs with gamma_only case
- *     ```
- *       ...
- *       HR.fix_gamma();
- *       // HR is a const HContainer object, which has been initialized and fixed to gamma
- *       // loop atom-pairs directly without R index
- *       for (int i = 0; i < HR.size_atom_pairs(); i++)
- *       {
- *           // get data pointer of target atom-pair
- *           double* data_pointer = HR.get_pointer(i);
- *           // do something with data_pointer
- *           ...
- *       }
- *     ```
- *
  */
 template <typename T>
 class HContainer
@@ -319,24 +304,6 @@ class HContainer
      */
     void unfix_R() const;
 
-    /**
-     * @brief restrict R indexes of all atom-pair to 0, 0, 0
-     * add BaseMatrix<T> with non-zero R index to this->atom_pairs[i].values[0]
-     * set gamma_only = true
-     * in this mode:
-     *   1. fix_R() can not be used
-     *   2. there is no interface to set gamma_only = false, user should create a new HContainer if needed
-     *   3. get_size_for_loop_R() and loop_R() can not be used
-     *   4. get_AP_size() can be used
-     *   5. data(i, j) can be used to get pointer of target atom-pair with R = 0, 0, 0 , data(i,j,R) can not be used
-     *   6. insert_pair() can be safely used, but the R index will be ignored
-     *   7. find_matrix() can be safely used, but the R index will be ignored
-     *   8. operator() can be used, but the R index will be ignored
-     *   9. get_atom_pair(), find_atom_pair() can be used, be careful that AtomPair::get_HR_values() is dangerous in
-     * this mode.
-     */
-    void fix_gamma();
-
     // interface for call a R loop for HContainer
     // it can return a new R-index with (rx,ry,rz) for each loop
     // if index==0, a new loop of R will be initialized
@@ -397,11 +364,6 @@ class HContainer
      * @brief get current_R
      */
     int get_current_R() const;
-
-    /**
-     * @brief judge if gamma_only
-     */
-    bool is_gamma_only() const;
 
     /**
      * @brief get total memory bites of HContainer
@@ -505,8 +467,6 @@ class HContainer
     mutable std::vector<ModuleBase::Vector3<int>> tmp_R_index;
     // current index of R in tmp_atom_pairs, -1 means not initialized
     mutable int current_R = -1;
-
-    bool gamma_only = false;
 
     /**
      * @brief if wrapper_pointer is not nullptr, this HContainer is a wrapper

@@ -37,9 +37,6 @@ class Driver
     // the actual calculations
     void driver_run();
 
-    // Init harewares according to Input parameters
-    void init_hardware();
-    void finalize_hardware();
 };
 
 #endif

@@ -2,7 +2,6 @@
 #define  XC_LDA_X                         1  /*Exchange                                                              */
 #define  XC_LDA_C_PZ                      9  /*Perdew & Zunger                                                       */
 #define  XC_LDA_C_PW                     12  /*Perdew & Wang                                                         */
-#define  XC_HYB_GGA_XC_PBEH             406  /*aka PBE0 or PBE1PBE                                                   */
 #define  XC_GGA_X_HCTH_A                 34  /*HCTH-A                                                                */
 #define  XC_GGA_C_HCTH_A                 97  /*HCTH-A                                                                */
 #define  XC_GGA_X_PBE                   101  /*Perdew, Burke & Ernzerhof exchange                                    */

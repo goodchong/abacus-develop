@@ -3,50 +3,45 @@
 
 #include <memory>
 #include "source_base/global_function.h"
-#include "source_cell/sep_cell.h"
+#include "source_cell/atom_spec.h"
 #include "source_cell/magnetism.h"
-#include "module_symmetry/symmetry.h"
-#include "source_cell/module_neighlist/atom_provider.h"
 #include "source_cell/nonlocal_info_base.h"
+#include "source_cell/unitcell_data.h"
 
 // provide the basic information about unitcell.
-class UnitCell : public AtomProvider {
+class UnitCell {
   public:
-    double get_lat0() const override {
+    double get_lat0() const {
         return lat0;
     }
 
-    double get_omega() const override {
+    double get_omega() const {
         return omega;
     }
 
-    const ModuleBase::Matrix3& get_latvec() const override {
+    const ModuleBase::Matrix3& get_latvec() const {
         return latvec;
     }
 
-    int get_natom() const override {
+    int get_natom() const {
         return nat;
     }
 
-    int get_na(int i) const override {
+    int get_na(int i) const {
         return atoms[i].na;
     }
 
-    int get_ntype() const override {
+    int get_ntype() const {
         return ntype;
     }
 
-    ModuleBase::Vector3<double> get_tau(int i, int j) const override {
+    ModuleBase::Vector3<double> get_tau(int i, int j) const {
         return atoms[i].tau[j];
     }
 
     Atom* atoms = nullptr;
-    Sep_Cell sep_cell;
-
     bool set_atom_flag = false;                     // added on 2009-3-8 by mohan
     Magnetism magnet;                               // magnetism Yu Liu 2021-07-03
-    std::vector<std::vector<double>> atom_mulliken; //[nat][nspin]
-    int n_mag_at = 0;
 
     Lattice lat;
     std::string& Coordinate = lat.Coordinate;
@@ -56,12 +51,9 @@ class UnitCell : public AtomProvider {
     double& tpiba = lat.tpiba;
     double& tpiba2 = lat.tpiba2;
     double& omega = lat.omega;
-    std::vector<int>& lat_axis_free = lat.lat_axis_free;
-
     ModuleBase::Matrix3& latvec = lat.latvec;
     ModuleBase::Vector3<double>&a1 = lat.a1, &a2 = lat.a2, &a3 = lat.a3;
     ModuleBase::Vector3<double>& latcenter = lat.latcenter;
-    ModuleBase::Matrix3& latvec_supercell = lat.latvec_supercell;
     ModuleBase::Matrix3& G = lat.G;
     ModuleBase::Matrix3& GT = lat.GT;
     ModuleBase::Matrix3& GGT = lat.GGT;
@@ -72,13 +64,8 @@ class UnitCell : public AtomProvider {
     int& nat = st.nat;
     int*& iat2it = st.iat2it;
     int*& iat2ia = st.iat2ia;
-    int*& iwt2iat = st.iwt2iat;
-    int*& iwt2iw = st.iwt2iw;
     ModuleBase::IntArray& itia2iat = st.itia2iat;
     int& namax = st.namax;
-    int& nwmax = st.nwmax;
-
-    ModuleSymmetry::Symmetry symm;
 
     // ========================================================
     // iat2iwt is the atom index iat to the first global index for orbital of
@@ -185,41 +172,11 @@ class UnitCell : public AtomProvider {
                + double(R.z) * a3 - get_tau(iat1);
     }
 
-    // LiuXh add 20180515
-    ModuleBase::Matrix3 G0;
-    ModuleBase::Matrix3 GT0;
-    ModuleBase::Matrix3 GGT0;
-    ModuleBase::Matrix3 invGGT0;
-
-    // TODO(abacus-team): encapsulate ionic_position_updated and
-    // cell_parameter_updated with setters that enforce state invariants;
-    // currently exposed as mutable flags that can be toggled from anywhere.
-    bool ionic_position_updated
-        = false; ///< whether the ionic position has been updated
-    bool cell_parameter_updated
-        = false; ///< whether the cell parameters are updated
-
     //============================================================
     // meshx : max number of mesh point in pseudopotential file
-    // natomwfc : number of starting wavefunctions
-    // lmax  : Max L used for localized orbital.
-    // nmax  : Max N used for localized orbital.
-    // lmax_ppwf : Max L of pseudo wave functinos
-    // nelec : total number of electrons
-    // lmaxmax : revert from INPUT
+    // meshx : max number of mesh points in pseudopotential file
     //============================================================
     int meshx = 0;
-    int natomwfc = 0;
-    int lmax = 0;
-    int nmax = 0;
-    int nmax_total = 0; // mohan add 2009-09-10
-    int lmax_ppwf = 0;
-    int lmaxmax = 0;   // liuyu 2021-07-04
-    bool init_vel = false; // liuyu 2021-07-15
-                       // double nelec;
-
-  private:
-    ModuleBase::Matrix3 stress; // calculate stress on the cell
 
   public:
     UnitCell();
@@ -232,14 +189,13 @@ class UnitCell : public AtomProvider {
     std::vector<std::string> pseudo_type;
 
     std::vector<std::string> orbital_fn;  // filenames of orbitals, liuyu add 2022-10-19
-    std::string  descriptor_file; // filenames of descriptor_file, liuyu add 2023-04-06
-
     void set_iat2itia();
 
-    void setup_cell(const std::string& fn, std::ofstream& log, const double symmetry_prec, const int dfthalf_type, const std::string& pseudo_dir, const int nspin,
-        const std::string& basis_type, const std::string& orbital_dir, const std::string& init_wfc,
-        const double onsite_radius, const bool deepks_setorb, const bool rpa,
-        const bool fixed_atoms, const bool noncolin, const std::string& calculation, const std::string& esolver_type);
+    void setup_cell(const std::string& fn,
+                    std::ofstream& log,
+                    int nspin,
+                    const std::string& orbital_dir,
+                    bool noncolin);
 
     /**
      * @brief Pointer to non-local pseudopotential information.
@@ -249,49 +205,11 @@ class UnitCell : public AtomProvider {
      */
     std::unique_ptr<NonlocalInfoBase> infoNL;
 
-    // for constrained vc-relaxation where type of lattice
-    // is fixed, adjust the lattice vectors
-
-    //================================================================
-    // cal_natomwfc : calculate total number of atomic wavefunctions
-    // cal_nwfc     : calculate total number of local basis and lmax
-    // cal_meshx	: calculate max number of mesh points in pp file
-    //================================================================
-    bool if_atoms_can_move() const;
-    bool if_cell_can_change() const;
-    void setup(const std::string& latname_in,
-               const int& ntype_in,
-               const int& lmaxmax_in,
-               const bool& init_vel_in,
-               const std::string& fixed_axes_in);
+    void setup(int ntype_in);
 
     /// @brief check consistency between two atom labels from STRU and pseudo or
     /// orb file
     void compare_atom_labels(const std::string& label1, const std::string& label2) const;
-    /// @brief get atomCounts, which is a map from element type to atom number
-    std::map<int, int> get_atom_Counts() const;
-    /// @brief get orbitalCounts, which is a map from element type to orbital
-    /// number
-    std::map<int, int> get_orbital_Counts() const;
-    /// @brief get lnchiCounts, which is a map from element type to the l:nchi
-    /// map
-    std::map<int, std::map<int, int>> get_lnchi_Counts() const;
-    /// these are newly added functions, the three above functions are
-    /// deprecated and will be removed in the future
-    /// @brief get atom labels
-    std::vector<std::string> get_atomLabels() const;
-    /// @brief get atomCounts, which is a vector of element type with atom
-    /// number
-    std::vector<int> get_atomCounts() const;
-    /// @brief get lnchiCounts, which is a vector of element type with the
-    /// l:nchi vector
-    std::vector<std::vector<int>> get_lnchiCounts() const;
-    /// @brief get target magnetic moment for deltaspin
-    std::vector<ModuleBase::Vector3<double>> get_target_mag() const;
-    /// @brief get lagrange multiplier for deltaspin
-    std::vector<ModuleBase::Vector3<double>> get_lambda() const;
-    /// @brief get constrain for deltaspin
-    std::vector<ModuleBase::Vector3<int>> get_constrain() const;
 };
 
 #endif // unitcell class

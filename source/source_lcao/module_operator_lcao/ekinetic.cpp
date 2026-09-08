@@ -9,16 +9,13 @@
 // Constructor
 template <typename TK, typename TR>
 hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::EKinetic(
-    HS_Matrix_K<TK>* hsk_in,
-    const std::vector<ModuleBase::Vector3<double>>& kvec_d_in,
     hamilt::HContainer<TR>* hR_in,
     const UnitCell* ucell_in,
     const std::vector<double>& orb_cutoff,
     const Grid_Driver* GridD_in,
     const TwoCenterIntegrator* intor)
-    : hamilt::OperatorLCAO<TK, TR>(hsk_in, kvec_d_in, hR_in), orb_cutoff_(orb_cutoff), intor_(intor), gridD(GridD_in)
+    : hamilt::OperatorLCAO<TK, TR>(hR_in), orb_cutoff_(orb_cutoff), intor_(intor), gridD(GridD_in)
 {
-    this->cal_type = calculation_type::lcao_fixed;
     this->ucell = ucell_in;
 #ifdef __DEBUG
     assert(this->ucell != nullptr);
@@ -213,14 +210,6 @@ void hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::cal_HR_IJR(const int& iat1,
     }
 }
 
-// set_HR_fixed()
-template <typename TK, typename TR>
-void hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::set_HR_fixed(void* HR_fixed_in)
-{
-    this->HR_fixed = static_cast<hamilt::HContainer<TR>*>(HR_fixed_in);
-    this->allocated = false;
-}
-
 // contributeHR()
 template <typename TK, typename TR>
 void hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
@@ -237,18 +226,11 @@ void hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
             this->HR_fixed->set_zero();
             this->allocated = true;
         }
-        if (this->next_sub_op != nullptr)
-        {
-            // pass pointer of HR_fixed to the next node
-            static_cast<OperatorLCAO<TK, TR>*>(this->next_sub_op)->set_HR_fixed(this->HR_fixed);
-        }
         // calculate the values in HR_fixed
         this->calculate_HR();
         this->HR_fixed_done = true;
     }
-    // last node of sub-chain, add HR_fixed into HR
-    // skip if HR_fixed is nullptr or empty
-    if (this->next_sub_op == nullptr && this->HR_fixed != nullptr && this->HR_fixed->size_atom_pairs() > 0)
+    if (this->HR_fixed != nullptr && this->HR_fixed->size_atom_pairs() > 0)
     {
         this->hR->add(*(this->HR_fixed));
     }
@@ -257,10 +239,17 @@ void hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
     return;
 }
 
-// Include force/stress implementation
-#include "ekinetic_force_stress.hpp"
-#include "ekinetic_dh.hpp"
+#define INSTANTIATE_H0_EKINETIC(TK, TR)                                                                  \
+    template hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::EKinetic(                                   \
+        hamilt::HContainer<TR>*,                                                                         \
+        const UnitCell*,                                                                                 \
+        const std::vector<double>&,                                                                      \
+        const Grid_Driver*,                                                                              \
+        const TwoCenterIntegrator*);                                                                     \
+    template hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::~EKinetic();                                \
+    template void hamilt::EKinetic<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
 
-template class hamilt::EKinetic<hamilt::OperatorLCAO<double, double>>;
-template class hamilt::EKinetic<hamilt::OperatorLCAO<std::complex<double>, double>>;
-template class hamilt::EKinetic<hamilt::OperatorLCAO<std::complex<double>, std::complex<double>>>;
+INSTANTIATE_H0_EKINETIC(std::complex<double>, double);
+INSTANTIATE_H0_EKINETIC(std::complex<double>, std::complex<double>);
+
+#undef INSTANTIATE_H0_EKINETIC

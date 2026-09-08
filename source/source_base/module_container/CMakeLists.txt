@@ -2,34 +2,16 @@
 cmake_minimum_required(VERSION 3.14)
 
 set(ATen_CPU_SRCS)
-set(ATen_CUDA_SRCS)
-set(ATen_ROCM_SRCS)
 set(ATen_CPU_DEPENDENCY_LIBS)
-set(ATen_CUDA_DEPENDENCY_LIBS)
-set(ATen_ROCM_DEPENDENCY_LIBS)
 
 add_subdirectory(base/core)
 
-add_subdirectory(ATen/ops)
 add_subdirectory(ATen/core)
-add_subdirectory(ATen/kernels)
 
-if(USE_ROCM)
-  hip_add_library(container_rocm STATIC ${ATen_ROCM_SRCS})
-  set(ATen_ROCM_DEPENDENCY_LIBS container_rocm)
-endif()
+# The H0-only program uses Tensor as CPU-owned storage for radial tables.  It
+# needs allocation/copy kernels, but no tensor algebra or LAPACK eigensolvers.
+list(APPEND ATen_CPU_SRCS ATen/kernels/memory_impl.cpp)
 
-add_library(container STATIC ${ATen_CPU_SRCS} ${ATen_CUDA_SRCS})
+add_library(container STATIC ${ATen_CPU_SRCS})
 
-target_link_libraries(container PUBLIC
-  ${ATen_CPU_DEPENDENCY_LIBS} ${ATen_CUDA_DEPENDENCY_LIBS} ${ATen_ROCM_DEPENDENCY_LIBS})
-
-if(ENABLE_COVERAGE)
-  add_coverage(container)
-endif()
-
-if(BUILD_TESTING)
-  if(ENABLE_MPI)
-    add_subdirectory(test)
-  endif()
-endif()
+target_link_libraries(container PUBLIC ${ATen_CPU_DEPENDENCY_LIBS})

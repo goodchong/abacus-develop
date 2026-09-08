@@ -10,8 +10,7 @@ namespace ModuleIO {
 /**
  * @brief A class for unit cell I/O operations
  * 
- * This class provides methods to write and read unit cell information
- * to/from files, particularly for DMK files.
+ * This class writes the legacy cell preamble retained by the H(R) CSR format.
  */
 class UcellIO {
 public:
@@ -23,12 +22,6 @@ public:
      */
     static void write_ucell(std::ofstream& ofs, const UnitCell* ucell);
 
-    /**
-     * @brief Reads the unit cell information lines in a file.
-     *
-     * @param ifs The input file stream.
-     */
-    static void read_ucell(std::ifstream& ifs);
 };
 
 } // namespace ModuleIO

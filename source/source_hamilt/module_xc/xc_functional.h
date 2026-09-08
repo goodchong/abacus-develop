@@ -5,20 +5,13 @@
 #ifndef XC_FUNCTIONAL_H
 #define XC_FUNCTIONAL_H
 
-#ifdef USE_LIBXC
-#include <xc.h>
-#else
 #include "xc_ids.h"
-#endif	// ifdef USE_LIBXC
 #include "source_base/macros.h"
 #include "source_base/global_function.h"
 #include "source_base/vector3.h"
 #include "source_base/matrix.h"
-#include "source_basis/module_pw/pw_basis_k.h"
 #include "source_estate/module_charge/charge.h"
 #include "source_cell/unitcell.h"
-
-#include <map> // added by jghan, 2024-10-10
 
 class XC_Functional
 {
@@ -35,37 +28,18 @@ class XC_Functional
 //  xc_pot.cpp
 //-------------------
 
-// This file contains interface to the xc_functional class
-// it includes 3 subroutines:
-// 1. v_xc : which takes rho as input, and [etxc, vtxc, v_xc] as output
-// 2. v_xc_libxc : which does the same thing as v_xc, but calling libxc
-// NOTE : it is only used for nspin = 1 and 2, the nspin = 4 case is treated in v_xc
-// 3. v_xc_meta : which takes rho and tau as input, and v_xc as output
-
-    // compute the exchange-correlation energy 
-    // [etxc, vtxc, v] = v_xc(...)
+    // Compute the built-in LDA/GGA exchange-correlation potential.
     static std::tuple<double, double, ModuleBase::matrix> v_xc(
         const int &nrxx, // number of real-space grid
         const Charge* const chr,
         const UnitCell *ucell, // charge density
         const int nspin,
         const bool domag,
-        const bool domag_z,
-        const double hybrid_alpha,
-        const double hse_omega);
+        const bool domag_z);
 
 //-------------------
 //  xc_functional.cpp
 //-------------------
-
-// This file contains subroutines for setting the functional
-// it includes 4 subroutines:
-// 1. get_func_type : which returns the type of functional (func_type):
-//      0 = none; 1 = lda; 2 = gga; 3 = mgga; 4 = hybrid lda/gga; 5 = hybrid mgga
-// 2. set_xc_type : sets the value of:
-//      func_id, which is the LIBXC id of functional
-//      func_type, which is as specified in get_func_type
-//      use_libxc, whether to use LIBXC. The rule is to NOT use it for functionals that we already have.
 
     static int get_func_type()
     {
@@ -74,74 +48,26 @@ class XC_Functional
 
     static void set_xc_type(const std::string xc_func_in);
 
-    // For hybrid functional
-    static void set_hybrid_alpha(const double alpha_in);
-
-    static double get_hybrid_alpha()
-    {
-        return hybrid_alpha;
-    };
-
-    static void set_hse_omega(const double omega_in);
-
-    static double get_hse_omega()
-    {
-        return hse_omega;
-    };
-
     static bool get_ked_flag()
     {
-        return ked_flag;
+        return false;
     };
-
-    /// Usually in exx caculation, the first SCF loop should be converged with PBE
-    static void set_xc_first_loop(const UnitCell& ucell);
 
     static std::string output_info();
 
     private:
 
-    static std::vector<int> func_id; // libxc id of functional
-    static int func_type; //0:none, 1:lda, 2:gga, 3:mgga, 4:hybrid lda/gga, 5:hybrid mgga
-    static bool ked_flag; // whether the functional has kinetic energy density
-    static bool use_libxc;
-
-    // exx_hybrid_alpha for mixing exx in hybrid functional:
-    static double hybrid_alpha;
-
-    // hse_omega for HSE functional:
-    static double hse_omega;
-
-    // added by jghan, 2024-07-07
-    // as a scaling factor for different xc-functionals
-    static std::map<int, double> scaling_factor_xc;
-
-    public:
-    static std::vector<int> get_func_id() { return func_id; }
+    static std::vector<int> func_id;
+    static int func_type; // 1 = LDA, 2 = GGA
 
 //-------------------
 //  xc_lda_wrap.cpp
 //-------------------
 
-// This file contains wrapper for the LDA functionals
-// it includes 3 subroutines:
+// This file contains wrappers for the built-in LDA functionals:
 // 1. xc, which is the wrapper of LDA part
 // (i.e. LDA functional and LDA part of GGA functional)
 // 2. xc_spin, which is the spin polarized counterpart of xc
-// 3. xc_spin_libxc, which is the wrapper for LDA functional, spin polarized
-
-// NOTE : In our own realization of GGA functional, the LDA part
-// and gradient correction are calculated separately.
-// The LDA part is provided in xc, while the gradient correction is 
-// provided in gradcorr through gcxc/gcx_spin+gcc_spin.
-// While in LIBXC, the entire GGA functional is provided.
-// As a result, xc/xc_spin and xc_spin_libxc are different for GGA,
-// the former gives nonzero result, while the latter returns 0.
-// Furthermore, the reason for not having xc_libxc is that something like
-// xc_libxc which evaluates functional for individual grid points
-// is not efficient. For nspin = 1 and 2, v_xc_libxc evaluates potential
-// on the entire grid. I'm having xc_spin_libxc because v_xc_libxc
-// does not support nspin = 4.
 
     public:
 
@@ -165,10 +91,6 @@ class XC_Functional
 // 1. gcxc, which is the wrapper for gradient correction part
 // 2. gcx_spin, spin polarized, exchange only
 // 3. gcc_spin, spin polarized, correlation only
-
-// The difference between our realization (gcxc/gcx_spin/gcc_spin) and
-// LIBXC, and the reason for not having gcxc_libxc is explained
-// in the NOTE in the comment for xc_gga_wrap.cpp part
 
     // GGA
     static void gcxc(
@@ -203,14 +125,11 @@ class XC_Functional
 //  xc_grad.cpp
 //-------------------
 
-// This file contains subroutines realted to gradient calculations
-// it contains 5 subroutines:
+// This file contains the gradient calculations used by built-in GGA:
 // 1. gradcorr, which calculates gradient correction
-// 2. grad_wfc, which calculates gradient of wavefunction
-//      it is used in stress_func_mgga.cpp
-// 3. grad_rho, which calculates gradient of density
-// 4. grad_dot, which calculates divergence of something
-// 5. noncolin_rho, which diagonalizes the spin density matrix
+// 2. grad_rho, which calculates gradient of density
+// 3. grad_dot, which calculates divergence of something
+// 4. noncolin_rho, which diagonalizes the spin density matrix
 //  and gives the spin up and spin down components of the charge.
 
     static void gradcorr(
@@ -220,23 +139,9 @@ class XC_Functional
         const Charge* const chr,
         ModulePW::PW_Basis* rhopw,
         const UnitCell* ucell,
-        std::vector<double>& stress_gga,
-        const bool is_stress,
         const int nspin,
         const bool domag,
-        const bool domag_z,
-        const double hybrid_alpha,
-        const double hse_omega);
-
-    template <typename T, typename Device,
-              typename Real = typename GetTypeReal<T>::type>
-
-    static void grad_wfc(
-        const int ik,
-        const Real tpiba,
-        const ModulePW::PW_Basis_K* wfc_basis,
-        const T* rhog,
-        T* grad);
+        const bool domag_z);
 
     static void grad_rho(
         const std::complex<double>* rhog,

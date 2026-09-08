@@ -27,16 +27,6 @@ bool validate_coordinate_system(const std::string& Coordinate,
 void allocate_atom_properties(Atom& atom, int na, double mass);
 
 /**
- * @brief Set atom movement constraints based on fixed_atoms parameter
- * @param atom The atom object
- * @param ia Atom index
- * @param mv Movement vector (1=movable, 0=fixed)
- */
-void set_atom_movement_flags(Atom& atom, int ia,
-                            const ModuleBase::Vector3<int>& mv,
-                            const bool fixed_atoms);
-
-/**
  * @brief Set default magnetization if not explicitly specified
  * @param ucell Unit cell object
  * @param nspin Number of spin components
@@ -54,9 +44,7 @@ void autoset_magnetization(UnitCell& ucell, int nspin,
  */
 bool finalize_atom_positions(UnitCell& ucell,
                             std::ofstream& ofs_running,
-                            std::ofstream& ofs_warning,
-                            const std::string& calculation,
-                            const std::string& esolver_type);
+                            std::ofstream& ofs_warning);
 
 /**
  * @brief Calculate lattice center for different centering modes
@@ -102,11 +90,10 @@ void process_magnetization(Atom& atom, int it, int ia,
                           const bool noncolin);
 
 /**
- * @brief Parse optional atom properties (mag, angle1, angle2, lambda, sc, m, v)
+ * @brief Parse optional atom properties used by H0 (mag and spin angles)
  * @param ifpos Input file stream
  * @param atom The atom object
  * @param ia Atom index
- * @param mv Movement vector (output parameter)
  * @param input_vec_mag Whether vector magnetization was input (output parameter)
  * @param input_angle_mag Whether angle magnetization was input (output parameter)
  * @param set_element_mag_zero Whether to reset element magnetization (output parameter)
@@ -114,7 +101,6 @@ void process_magnetization(Atom& atom, int it, int ia,
  */
 bool parse_atom_properties(std::ifstream& ifpos,
                           Atom& atom, int ia,
-                          ModuleBase::Vector3<int>& mv,
                           bool& input_vec_mag,
                           bool& input_angle_mag,
                           bool& set_element_mag_zero);
@@ -134,10 +120,7 @@ bool read_atom_type_header(int it, UnitCell& ucell,
                           std::ofstream& ofs_running,
                           std::ofstream& ofs_warning,
                           bool& set_element_mag_zero,
-                          const std::string& basis_type,
-                          const std::string& orbital_dir,
-                          const std::string& init_wfc,
-                          const double onsite_radius);
+                          const std::string& orbital_dir);
 
 } // namespace unitcell
 

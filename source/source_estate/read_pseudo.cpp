@@ -1,5 +1,4 @@
 #include "read_pseudo.h"
-#include "source_base/global_file.h"
 #include "source_cell/cal_atoms_info.h"
 #include "source_cell/read_pp.h"
 #include "source_cell/bcast_cell.h"
@@ -9,45 +8,30 @@
 #include <cstring> // Peize Lin fix bug about strcmp 2016-08-02
 
 namespace elecstate {
-AtomsInfoResult read_pseudo(std::ofstream& ofs, UnitCell& ucell,
-                   const std::string& pseudo_dir,
-                   const std::string& global_out_dir,
-                   const bool out_element_info,
-                   const std::string& dft_functional,
-                   const bool lspinorb,
-                   const double pseudo_rcut,
-                   const double soc_lambda,
-                   const int nspin,
-                   const int npol,
-                   const std::string& basis_type,
-                   const std::string& esolver_type,
-                   const std::string& init_wfc,
-                   const int nbands,
-                   const bool two_fermi,
-                   const double nelec_delta,
-                   const std::string& smearing_method,
-                   const std::string& ks_solver,
-                   const int bndpar,
-                   const double nelec,
-                   const double nupdown) {
+AtomsInfoResult read_pseudo(std::ofstream& ofs,
+                            UnitCell& ucell,
+                            const std::string& pseudo_dir,
+                            const std::string& dft_functional,
+                            const bool lspinorb,
+                            const double pseudo_rcut,
+                            const double soc_lambda,
+                            const int nspin,
+                            const int npol,
+                            const bool two_fermi,
+                            const double nelec,
+                            const double nupdown) {
     // read in non-local pseudopotential and ouput the projectors.
     ofs << "\n\n";
     ofs << " >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << std::endl;
     ofs << " |                                                                    |" << std::endl;
-    ofs << " |                 #Read Pseudopotentials Files#                      |" << std::endl;
-    ofs << " | ABACUS supports norm-conserving (NC) pseudopotentials for both     |" << std::endl;
-    ofs << " | plane wave basis set and numerical atomic orbital basis set.       |" << std::endl;
-    ofs << " | In addition, ABACUS supports ultrasoft pseudopotentials (USPP)     |" << std::endl;
-    ofs << " | for plane wave basis set.                                          |" << std::endl;
+    ofs << " |          Read pseudopotentials for the LCAO H0 matrix              |" << std::endl;
     ofs << " |                                                                    |" << std::endl;
     ofs << " <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     ofs << "\n";
 
     const std::string pseudo_dir_ = pseudo_dir;
-    const std::string global_out_dir_ = global_out_dir;
-    const bool out_element_info_ = out_element_info;
     const std::string dft_functional_ = dft_functional;
-    read_cell_pseudopots(pseudo_dir_, ofs, ucell, global_out_dir_, dft_functional_, lspinorb, pseudo_rcut, soc_lambda);
+    read_cell_pseudopots(pseudo_dir_, ofs, ucell, dft_functional_, lspinorb, pseudo_rcut, soc_lambda);
 
 	if (GlobalV::MY_RANK == 0) 
 	{
@@ -60,75 +44,6 @@ AtomsInfoResult read_pseudo(std::ofstream& ofs, UnitCell& ucell,
             }
         }
 
-		if (out_element_info_) 
-		{
-			for (int i = 0; i < ucell.ntype; i++) 
-			{
-				ModuleBase::Global_File::make_dir_atom(ucell.atoms[i].label, global_out_dir_);
-            }
-			for (int it = 0; it < ucell.ntype; it++) 
-			{
-				Atom* atom = &ucell.atoms[it];
-                std::stringstream ss;
-                ss << global_out_dir_ << atom->label << "/"
-                   << atom->label << ".NONLOCAL";
-                std::ofstream ofs(ss.str().c_str());
-
-                ofs << "<HEADER>" << std::endl;
-                ofs << std::setw(10) << atom->label << "\t"
-                    << "label" << std::endl;
-                ofs << std::setw(10) << atom->ncpp.pp_type << "\t"
-                    << "Pseudopotential type" << std::endl;
-                ofs << std::setw(10) << atom->ncpp.lmax << "\t"
-                    << "lmax" << std::endl;
-                ofs << "</HEADER>" << std::endl;
-
-                ofs << "\n<DIJ>" << std::endl;
-                ofs << std::setw(10) << atom->ncpp.nbeta << "\t"
-                    << "nummber of projectors." << std::endl;
-                for (int ib = 0; ib < atom->ncpp.nbeta; ib++) {
-                    for (int ib2 = 0; ib2 < atom->ncpp.nbeta; ib2++) {
-                        ofs << std::setw(10) << atom->ncpp.lll[ib] << " "
-                            << atom->ncpp.lll[ib2] << " "
-                            << atom->ncpp.dion(ib, ib2) << std::endl;
-                    }
-                }
-                ofs << "</DIJ>" << std::endl;
-
-                for (int i = 0; i < atom->ncpp.nbeta; i++) {
-                    ofs << "<PP_BETA>" << std::endl;
-                    ofs << std::setw(10) << i << "\t"
-                        << "the index of projectors." << std::endl;
-                    ofs << std::setw(10) << atom->ncpp.lll[i] << "\t"
-                        << "the angular momentum." << std::endl;
-
-                    // mohan add
-                    // only keep the nonzero part.
-                    int cut_mesh = atom->ncpp.mesh;
-                    for (int j = atom->ncpp.mesh - 1; j >= 0; --j) {
-                        if (std::abs(atom->ncpp.betar(i, j)) > 1.0e-10) {
-                            cut_mesh = j;
-                            break;
-                        }
-                    }
-                    if (cut_mesh % 2 == 0) {
-                        ++cut_mesh;
-                    }
-
-                    ofs << std::setw(10) << cut_mesh << "\t"
-                        << "the number of mesh points." << std::endl;
-
-                    for (int j = 0; j < cut_mesh; ++j) {
-                        ofs << std::setw(15) << atom->ncpp.r[j] << std::setw(15)
-                            << atom->ncpp.betar(i, j) << std::setw(15)
-                            << atom->ncpp.rab[j] << std::endl;
-                    }
-                    ofs << "</PP_BETA>" << std::endl;
-                }
-
-                ofs.close();
-            }
-        }
     }
 
 #ifdef __MPI
@@ -149,30 +64,16 @@ AtomsInfoResult read_pseudo(std::ofstream& ofs, UnitCell& ucell,
         }
     }
 
-    // setup the total number of PAOs
-    cal_natomwfc(ofs,ucell.natomwfc,ucell.ntype,ucell.atoms,nspin);
-
-    // Calculate the information of atoms from the pseudopotential
-    // CRITICAL: Must pass the user-specified nbands and nelec parameters to cal_atoms_info().
-    // Previously, nbands and nelec were not passed, causing cal_atoms_info() to use default 0,
-    // which triggered cal_nbands() and cal_nelec() to auto-calculate regardless of user input.
-    // This led to incorrect energy calculations (deviation ~139 eV in test 006_PW_UPF201_Eu,
-    // and ~7-8 eV in tests 076_PW_elec_add, 078_PW_S2_elec_add, 082_PW_gatefield).
     CalAtomsInfo ca;
     AtomsInfoResult atoms_info = ca.cal_atoms_info(ucell.atoms, ucell.ntype,
-                                                    nspin, two_fermi, nelec_delta,
-                                                    esolver_type, lspinorb,
-                                                    basis_type, smearing_method,
-                                                    ks_solver, bndpar,
-                                                    nbands,
-                                                    nelec,
+                                                    nspin, two_fermi, nelec,
                                                     nupdown);
 
-    // setup nlocal
-    // nlocal is calculated by CalAtomsInfo::cal_atoms_info() above
-    // Use the input nbands parameter (from user specification) instead of atoms_info.nbands
-    cal_nwfc(ofs, ucell, ucell.atoms, nspin, atoms_info.nlocal, npol,
-              basis_type, esolver_type, init_wfc, nbands);
+    setup_lcao_basis_indices(ucell,
+                             ucell.atoms,
+                             nspin,
+                             atoms_info.nlocal,
+                             npol);
 
     // Check whether the number of valence is minimum
 	if (GlobalV::MY_RANK == 0) 
@@ -243,13 +144,10 @@ AtomsInfoResult read_pseudo(std::ofstream& ofs, UnitCell& ucell,
         }
     }
 
-    cal_meshx(ucell.meshx,ucell.atoms,ucell.ntype);
+    set_maximum_pseudo_mesh(ucell.meshx, ucell.atoms, ucell.ntype);
 
 #ifdef __MPI
     Parallel_Common::bcast_int(ucell.meshx);
-    Parallel_Common::bcast_int(ucell.natomwfc);
-    Parallel_Common::bcast_int(ucell.lmax);
-    Parallel_Common::bcast_int(ucell.lmax_ppwf);
 #endif
 
     return atoms_info;
@@ -259,7 +157,6 @@ AtomsInfoResult read_pseudo(std::ofstream& ofs, UnitCell& ucell,
 // Read pseudopotential according to the dir
 //==========================================================
 void read_cell_pseudopots(const std::string& pp_dir, std::ofstream& log, UnitCell& ucell,
-                          const std::string& global_out_dir,
                           const std::string& dft_functional,
                           const bool lspinorb,
                           const double pseudo_rcut,
@@ -267,14 +164,10 @@ void read_cell_pseudopots(const std::string& pp_dir, std::ofstream& log, UnitCel
 {
     ModuleBase::TITLE("Elecstate", "read_cell_pseudopots");
     // setup reading log for pseudopot_upf
-    const std::string global_out_dir_ = global_out_dir;
     const std::string dft_functional_ = dft_functional;
     const bool lspinorb_ = lspinorb;
     const double pseudo_rcut_ = pseudo_rcut;
     const double soc_lambda_ = soc_lambda;
-    std::stringstream ss;
-    ss << global_out_dir_ << "atom_pseudo.log";
-
     // Read in the atomic pseudo potentials
     std::string pp_address;
     for (int i = 0; i < ucell.ntype; i++)

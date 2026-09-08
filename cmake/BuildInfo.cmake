@@ -1,28 +1,23 @@
-# =============================================================================
-# Generate Build Information Header (Including Information Collection)
-# ==============================================================================
-
-# include_guard(GLOBAL)
-
 function(setup_build_info)
-    message(STATUS "Setting up build information...")
+  if(NOT CMAKE_BUILD_TYPE)
+    set(ABACUS_BUILD_TYPE "Custom")
+  else()
+    set(ABACUS_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+  endif()
 
-    include(${PROJECT_SOURCE_DIR}/cmake/CollectBuildInfoVars.cmake)
+  if(ENABLE_MPI)
+    set(ABACUS_MPI_STATUS "yes")
+  else()
+    set(ABACUS_MPI_STATUS "no")
+  endif()
+  if(ENABLE_OPENMP)
+    set(ABACUS_OPENMP_STATUS "yes")
+  else()
+    set(ABACUS_OPENMP_STATUS "no")
+  endif()
 
-set(BUILD_INFO_TEMPLATE "${CMAKE_SOURCE_DIR}/source/source_io/build_info.h.in")
-set(BUILD_INFO_OUTPUT   "${CMAKE_BINARY_DIR}/source/source_io/build_info.h")
-
-configure_file(
-    ${BUILD_INFO_TEMPLATE}
-    ${BUILD_INFO_OUTPUT}
-    @ONLY
-)
-
-    # add_library(BuildInfo::Headers INTERFACE IMPORTED GLOBAL)
-    # target_include_directories(BuildInfo::Headers
-    #     INTERFACE
-    #         ${CMAKE_BINARY_DIR}/source/source_io
-    # )
-
-    message(STATUS "Build info header configured: ${BUILD_INFO_OUTPUT}")
+  configure_file(
+    "${CMAKE_SOURCE_DIR}/source/source_io/build_info.h.in"
+    "${CMAKE_BINARY_DIR}/source/source_io/build_info.h"
+    @ONLY)
 endfunction()

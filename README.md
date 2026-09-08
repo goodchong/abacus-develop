@@ -1,20 +1,78 @@
-<p align="center">
-    <img src="docs/abacus-logo.svg">
-</p>
+# ABACUS H0
 
-<p align="center">
-    <a href="https://github.com/deepmodeling/abacus-develop/actions/workflows/test.yml">
-        <img src="https://github.com/deepmodeling/abacus-develop/actions/workflows/test.yml/badge.svg">
-    </a>
-</p>
+This repository is a single-purpose ABACUS variant. It reads the usual
+`INPUT`, `STRU`, norm-conserving pseudopotential, and numerical atomic-orbital
+files; constructs the initial Hamiltonian in an LCAO basis; writes sparse
+real-space `H(R)` in Ry; and exits. It never reads `KPT` and never enters a
+solver, diagonalization, occupation, density-matrix, mixing, or SCF loop.
 
-<a id="readme-top"></a>
+Two Hamiltonians are available:
 
-# About ABACUS
+- `h0_type core`: `T + V_nl + V_loc`
+- `h0_type full`: `T + V_nl + V_loc + V_H[rho0] + V_xc[rho0]`
 
-ABACUS (**A**tomic-orbital **B**ased **A**b-initio **C**omputation at **US**tc) is an open-source package based on density functional theory (DFT). The package utilizes both plane wave and numerical atomic basis sets with the usage of pseudopotentials to describe the interactions between nuclear ions and valence electrons. ABACUS supports LDA, GGA, meta-GGA, and hybrid functionals. Apart from single-point calculations, the package allows geometry optimizations and ab-initio molecular dynamics with various ensembles. The package also provides a variety of advanced functionalities for simulating materials, including the DFT+U, VdW corrections, and implicit solvation model, etc. In addition, ABACUS strives to provide a general infrastructure to facilitate the developments and applications of novel machine-learning-assisted DFT methods (DeePKS, DP-GEN, DeepH, DeePTB etc.) in molecular and material simulations.
+For `full`, `rho0` is initialized with the original ABACUS first-iteration
+ordering, including nonlinear core charge and normalization. `init_chg` accepts
+`atomic`, `file`, and `auto`; `auto` first tries the normal restart/cube files
+and then falls back to atomic density.
 
-# Online Documentation
-For detailed documentation, please refer to [our documentation website](https://abacus.deepmodeling.com/).
+## Build
 
-See our [Github Pages](https://mcresearch.github.io/abacus-user-guide/) for more tutorials and developer guides.
+Required dependencies are a C++11 compiler, FFTW3, BLAS, LAPACK, and pthreads.
+OpenMP is optional. MPI builds additionally require MPI and ScaLAPACK.
+
+```bash
+# Serial
+cmake -S . -B build-serial \
+  -DENABLE_MPI=OFF -DENABLE_OPENMP=ON -DBUILD_TESTING=ON \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build-serial -j
+ctest --test-dir build-serial --output-on-failure
+
+# MPI
+cmake -S . -B build-mpi \
+  -DENABLE_MPI=ON -DENABLE_OPENMP=ON -DBUILD_TESTING=ON \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build-mpi -j
+ctest --test-dir build-mpi --output-on-failure
+```
+
+Only one executable is produced: `build-*/abacus`.
+
+## Run
+
+```text
+INPUT_PARAMETERS
+calculation         get_h0
+h0_type             full
+basis_type          lcao
+suffix              h0
+pseudo_dir          ./
+orbital_dir         ./
+nspin               1
+ecutwfc             60
+h0_sparse_threshold 1e-10
+h0_precision        16
+```
+
+Place `STRU` and the files named by it beside `INPUT`, then run:
+
+```bash
+OMP_NUM_THREADS=1 /path/to/abacus
+```
+
+The result is written below `OUT.<suffix>`:
+
+- `nspin=1`: `hrs1_nao.csr`
+- `nspin=2, core`: `hrs1_nao.csr`
+- `nspin=2, full`: `hrs1_nao.csr` and `hrs2_nao.csr`
+- `nspin=4`: one complex spinor matrix, `hrs1_nao.csr`
+
+See [docs/h0.md](docs/h0.md) for the exact contract and
+[docs/advanced/input_files/input-main.md](docs/advanced/input_files/input-main.md)
+for generated INPUT metadata.
+
+## License and citation
+
+The original ABACUS license is retained in [LICENSE](LICENSE). See
+[CITATIONS.md](CITATIONS.md) for the LCAO and general ABACUS references.

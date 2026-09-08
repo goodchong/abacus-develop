@@ -50,33 +50,13 @@ bool validate_coordinate_system(const std::string& Coordinate,
 void allocate_atom_properties(Atom& atom, int na, double mass)
 {
     atom.tau.resize(na, ModuleBase::Vector3<double>(0,0,0));
-    atom.dis.resize(na, ModuleBase::Vector3<double>(0,0,0));
     atom.taud.resize(na, ModuleBase::Vector3<double>(0,0,0));
     atom.boundary_shift.resize(na, ModuleBase::Vector3<int>(0,0,0));
-    atom.vel.resize(na, ModuleBase::Vector3<double>(0,0,0));
-    atom.mbl.resize(na, ModuleBase::Vector3<int>(0,0,0));
     atom.mag.resize(na, 0);
     atom.angle1.resize(na, 0);
     atom.angle2.resize(na, 0);
     atom.m_loc_.resize(na, ModuleBase::Vector3<double>(0,0,0));
-    atom.lambda.resize(na, ModuleBase::Vector3<double>(0,0,0));
-    atom.constrain.resize(na, ModuleBase::Vector3<int>(0,0,0));
     atom.mass = mass;
-}
-
-void set_atom_movement_flags(Atom& atom, int ia,
-                             const ModuleBase::Vector3<int>& mv,
-                             const bool fixed_atoms)
-{
-    if(!fixed_atoms)
-    {
-        atom.mbl[ia] = mv;
-    }
-    else
-    {
-        atom.mbl[ia] = 0.0;
-        atom.mbl[ia].print();
-    }
 }
 
 void autoset_magnetization(UnitCell& ucell, int nspin,
@@ -133,17 +113,8 @@ void autoset_magnetization(UnitCell& ucell, int nspin,
 
 bool finalize_atom_positions(UnitCell& ucell,
                              std::ofstream& ofs_running,
-                             std::ofstream& ofs_warning,
-                             const std::string& calculation,
-                             const std::string& esolver_type)
+                             std::ofstream& ofs_warning)
 {
-    // Check if any atom can move in MD
-    if(!ucell.if_atoms_can_move() && calculation=="md" && esolver_type!="tddft")
-    {
-        ModuleBase::WARNING("read_atoms", "no atoms can move in MD simulations!");
-        return false;
-    }
-
     ofs_running << std::endl;
     ModuleBase::GlobalFunc::OUT(ofs_running,"TOTAL ATOM NUMBER",ucell.nat);
     ofs_running << std::endl;
@@ -351,11 +322,11 @@ void process_magnetization(Atom& atom, int it, int ia,
 
 bool parse_atom_properties(std::ifstream& ifpos,
                           Atom& atom, int ia,
-                          ModuleBase::Vector3<int>& mv,
                           bool& input_vec_mag,
                           bool& input_angle_mag,
                           bool& set_element_mag_zero)
 {
+    ModuleBase::Vector3<int> ignored_movement(1, 1, 1);
     std::string tmpid;
     tmpid = ifpos.get();
 
@@ -374,8 +345,8 @@ bool parse_atom_properties(std::ifstream& ifpos,
         char tmp = (char)tmpid[0];
         if ( tmp >= DIGIT_START && tmp <= DIGIT_END )
         {
-            mv.x = std::stoi(tmpid);
-            ifpos >> mv.y >> mv.z;
+            ignored_movement.x = std::stoi(tmpid);
+            ifpos >> ignored_movement.y >> ignored_movement.z;
         }
         // new method of reading frozen ions and velocities
         if ( tmp >= LOWER_A && tmp <= LOWER_Z)
@@ -385,11 +356,14 @@ bool parse_atom_properties(std::ifstream& ifpos,
         }
         if ( tmpid == "m" )
         {
-            ifpos >> mv.x >> mv.y >> mv.z;
+            ifpos >> ignored_movement.x >> ignored_movement.y
+                  >> ignored_movement.z;
         }
         else if ( tmpid == "v" ||tmpid == "vel" || tmpid == "velocity" )
         {
-            ifpos >> atom.vel[ia].x >> atom.vel[ia].y >> atom.vel[ia].z;
+            ModuleBase::Vector3<double> ignored_velocity;
+            ifpos >> ignored_velocity.x >> ignored_velocity.y
+                  >> ignored_velocity.z;
         }
         else if ( tmpid == "mag" || tmpid == "magmom")
         {
@@ -433,50 +407,11 @@ bool parse_atom_properties(std::ifstream& ifpos,
             input_angle_mag=true;
             set_element_mag_zero = true;
         }
-        else if ( tmpid == "lambda")
+        else if (tmpid == "lambda" || tmpid == "sc")
         {
-            double tmplam=0;
-            ifpos >> tmplam;
-            tmp=ifpos.get();
-            while (tmp==' ')
-            {
-                tmp=ifpos.get();
-            }
-            if((tmp >= DIGIT_START && tmp <= DIGIT_END) or tmp==MINUS_SIGN)
-            {
-                ifpos.putback(tmp);
-                ifpos >> atom.lambda[ia].y>>atom.lambda[ia].z;
-                atom.lambda[ia].x=tmplam;
-            }
-            else
-            {
-                ifpos.putback(tmp);
-                atom.lambda[ia].z=tmplam;
-            }
-            atom.lambda[ia].x /= ModuleBase::Ry_to_eV;
-            atom.lambda[ia].y /= ModuleBase::Ry_to_eV;
-            atom.lambda[ia].z /= ModuleBase::Ry_to_eV;
-        }
-        else if ( tmpid == "sc")
-        {
-            double tmplam=0;
-            ifpos >> tmplam;
-            tmp=ifpos.get();
-            while (tmp==' ')
-            {
-                tmp=ifpos.get();
-            }
-            if((tmp >= DIGIT_START && tmp <= DIGIT_END) or tmp==MINUS_SIGN)
-            {
-                ifpos.putback(tmp);
-                ifpos >> atom.constrain[ia].y>>atom.constrain[ia].z;
-                atom.constrain[ia].x=tmplam;
-            }
-            else
-            {
-                ifpos.putback(tmp);
-                atom.constrain[ia].z=tmplam;
-            }
+            ModuleBase::WARNING_QUIT(
+                "read_atom_positions",
+                "spin-constraint fields are not supported by the H0-only executable.");
         }
     }
     // move to next line
@@ -493,10 +428,7 @@ bool read_atom_type_header(int it, UnitCell& ucell,
                           std::ofstream& ofs_running,
                           std::ofstream& ofs_warning,
                           bool& set_element_mag_zero,
-                          const std::string& basis_type,
-                          const std::string& orbital_dir,
-                          const std::string& init_wfc,
-                          const double onsite_radius)
+                          const std::string& orbital_dir)
 {
     //=======================================
     // (1) read in atom label
@@ -523,46 +455,13 @@ bool read_atom_type_header(int it, UnitCell& ucell,
     // int* ucell.atoms[it].l_nchi;
     //===========================================
 
-    if ((basis_type == "lcao")||(basis_type == "lcao_in_pw"))
+    const std::string orbital_file = orbital_dir + ucell.orbital_fn[it];
+    const bool normal
+        = unitcell::read_orb_file(it, orbital_file, ofs_running, &(ucell.atoms[it]));
+    if (!normal)
     {
-        std::string orbital_file = orbital_dir + ucell.orbital_fn[it];
-        bool normal = unitcell::read_orb_file(it, orbital_file, ofs_running, &(ucell.atoms[it]));
-        if(!normal)
-        {
-            return false;
-        }
+        return false;
     }
-    else if(basis_type == "pw")
-    {
-        if ((init_wfc.substr(0, 3) == "nao") || onsite_radius > 0.0)
-        {
-            std::string orbital_file = orbital_dir + ucell.orbital_fn[it];
-            bool normal = unitcell::read_orb_file(it, orbital_file, ofs_running, &(ucell.atoms[it]));
-            if(!normal)
-            {
-                return false;
-            }
-        }
-        else
-        {
-            ucell.atoms[it].nw = 0;
-            ucell.atoms[it].nwl = 2;
-            if ( ucell.lmaxmax != 2 )
-            {
-                ucell.atoms[it].nwl = ucell.lmaxmax;
-            }
-            ucell.atoms[it].l_nchi.resize(ucell.atoms[it].nwl+1, 0);
-            for(int L=0; L<ucell.atoms[it].nwl+1; L++)
-            {
-                ucell.atoms[it].l_nchi[L] = 1;
-                // calculate the number of local basis(3D)
-                ucell.atoms[it].nw += (2*L + 1) * ucell.atoms[it].l_nchi[L];
-                std::stringstream ss;
-                ss << "L=" << L << ", number of zeta";
-                ModuleBase::GlobalFunc::OUT(ofs_running,ss.str(),ucell.atoms[it].l_nchi[L]);
-            }
-        }
-    } // end basis type
 #endif
 
     //=========================
@@ -574,12 +473,6 @@ bool read_atom_type_header(int it, UnitCell& ucell,
 
     ModuleBase::GlobalFunc::OUT(ofs_running,"Number of atoms for this type",na);
 
-    /**
-     * liuyu update 2023-05-11
-     * In order to employ the DP model as esolver,
-     * all atom types must be specified in the `STRU` in the order consistent with that of the DP model,
-     * even if the number of ucell.atoms is zero!
-     */
     if (na < 0)
     {
         ModuleBase::WARNING("read_atom_positions", " atom number < 0.");

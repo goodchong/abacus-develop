@@ -92,15 +92,7 @@ void Parallel_Grid::init(const int& ncx_in,
     assert(GlobalV::KPAR > 0);
 
     this->nproc_in_pool = new int[GlobalV::KPAR];
-    int nprocgroup = 0;
-    if (PARAM.inp.esolver_type == "sdft")
-    {
-        nprocgroup = GlobalV::NPROC_IN_BNDGROUP;
-    }
-    else
-    {
-        nprocgroup = GlobalV::NPROC;
-    }
+    const int nprocgroup = GlobalV::NPROC;
 
     const int remain_pro = nprocgroup % GlobalV::KPAR;
     for (int i = 0; i < GlobalV::KPAR; i++)
@@ -230,11 +222,6 @@ void Parallel_Grid::bcast(const double* const data_global, double* data_local, c
 
 void Parallel_Grid::zpiece_to_all(double* zpiece, const int& iz, double* rho) const
 {
-    if (PARAM.inp.esolver_type == "sdft")
-    {
-        this->zpiece_to_stogroup(zpiece, iz, rho);
-        return;
-    }
     assert(allocate);
     // ModuleBase::TITLE("Parallel_Grid","zpiece_to_all");
     MPI_Status ierror;

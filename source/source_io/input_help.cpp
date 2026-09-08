@@ -445,7 +445,7 @@ std::vector<std::string> ParameterHelp::search_parameters(const std::string& que
 
 void ParameterHelp::show_general_help(std::ostream& os) {
     os << "\n";
-    os << "ABACUS - Atomic-orbital Based Ab-initio Computation at UStc\n";
+    os << "ABACUS H0 - one-shot LCAO real-space Hamiltonian exporter\n";
     os << "\n";
     os << "Usage: abacus [options]\n";
     os << "  -v, -V, --version      Display version information\n";
@@ -456,16 +456,16 @@ void ParameterHelp::show_general_help(std::ostream& os) {
     os << "  --generate-parameters-yaml\n";
     os << "                         Dump all parameter metadata as YAML\n";
     os << "\n";
-    os << "Common INPUT parameters:\n";
-    os << "  calculation    - Calculation type (scf, relax, md, nscf, etc.)\n";
-    os << "  basis_type     - Basis set type (pw, lcao)\n";
-    os << "  ecutwfc        - Energy cutoff for wavefunctions (Ry)\n";
-    os << "  ks_solver      - Kohn-Sham solver (cg, dav, genelpa, etc.)\n";
-    os << "  scf_thr        - SCF convergence threshold\n";
-    os << "  pseudo_dir     - Directory containing pseudopotential files\n";
+    os << "Required INPUT parameters:\n";
+    os << "  calculation         - Must be get_h0\n";
+    os << "  h0_type             - core or full\n";
+    os << "  basis_type          - Must be lcao\n";
+    os << "  pseudo_dir          - Directory containing pseudopotentials\n";
+    os << "  orbital_dir         - Directory containing numerical orbitals\n";
+    os << "  h0_sparse_threshold - Strict absolute CSR threshold\n";
+    os << "  h0_precision        - Matrix output precision (1-17)\n";
     os << "\n";
-    os << "For a complete list of parameters, see documentation at:\n";
-    os << "https://abacus.deepmodeling.com/\n";
+    os << "The executable reads INPUT and STRU and writes hrs*_nao.csr.\n";
     os << "\n";
     os << "To search for parameters: abacus -s <keyword>\n";
     os << "To get help on a parameter: abacus -h <parameter_name>\n";

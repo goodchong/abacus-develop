@@ -43,8 +43,7 @@ class AtomPair
   public:
     // Constructor of class AtomPair
     // Only for 2d-block MPI parallel case
-    // This constructor used for initialize a atom-pair local Hamiltonian with only center cell
-    // which is used for constructing HK (k space Hamiltonian) objects, (gamma_only case)
+    // Initialize a real-space atom-pair block in the center cell.
     AtomPair(const int& atom_i_,              // atomic index of atom i, used to identify atom
              const int& atom_j_,              // atomic index of atom j, used to identify atom
              const Parallel_Orbitals* paraV_, // information for 2d-block parallel
@@ -75,8 +74,7 @@ class AtomPair
              T* existed_array
              = nullptr // if nullptr, new memory will be allocated, otherwise this class is a data wrapper
     );
-    // This constructor used for initialize a atom-pair local Hamiltonian with only center cell
-    // which is used for constructing HK (k space Hamiltonian) objects, (gamma_only case)
+    // Initialize a real-space atom-pair block in the center cell.
     AtomPair(const int& atom_i,         // atomic index of atom i, used to identify atom
              const int& atom_j,         // atomic index of atom j, used to identify atom
              const int* row_atom_begin, // array, contains starting indexes in Hamiltonian matrix of atom i
@@ -241,110 +239,8 @@ class AtomPair
      *
      * @param other Another AtomPair
      */
-    void merge(const AtomPair<T>& other, bool skip_R = false);
+    void merge(const AtomPair<T>& other);
 
-    /**
-     * @brief merge all values in this AtomPair to one BaseMatrix with R-index (0, 0, 0)
-     * in this case, H_gamma = sum_{R} H_R will be saved in this->values[0]
-     */
-    void merge_to_gamma();
-
-    /**
-     * @brief Add this->value[R_index] * kphase as a block matrix of hk.
-     * Thread-safe version: explicitly pass R_index.
-     *
-     * For row major dense matrix (hk_type == 0): value[R_index][i*col_size+j] -> hk[(row_ap+i) * ld_hk + col_ap + j]
-     * For column major dense matrix (hk_type == 1): value[R_index][i*col_size+j] -> hk[row_ap + i + (col_ap+j) * ld_hk]
-     *
-     * @param R_index Index of the R vector in this->values
-     * @param hk Pointer to the target matrix.
-     * @param ld_hk Leading dimension of the target matrix.
-     * @param kphase Complex scalar to be multiplied with the block matrix.
-     * @param hk_type The type of matrix layout (default: 0).
-     */
-    void add_to_matrix(const int R_index,
-                       std::complex<T>* hk,
-                       const int ld_hk,
-                       const std::complex<T>& kphase,
-                       const int hk_type = 0) const;
-
-    /**
-     * @brief Add this->value[R_index] * kphase as a block matrix of hk.
-     * Thread-safe version: explicitly pass R_index.
-     * for non-collinear spin case only
-     *
-     * @param R_index Index of the R vector in this->values
-     * @param hk Pointer to the target matrix.
-     * @param ld_hk Leading dimension of the target matrix.
-     * @param kphase Scalar to be multiplied with the block matrix.
-     * @param hk_type The type of matrix layout (default: 0).
-     */
-    void add_to_matrix(const int R_index,
-                       T* hk,
-                       const int ld_hk,
-                       const T& kphase,
-                       const int hk_type = 0) const;
-
-    void add_from_matrix(const std::complex<T>* hk,
-                       const int ld_hk,
-                       const std::complex<T>& kphase,
-                       const int hk_type = 0);
-    
-    void add_from_matrix(const T* hk, const int ld_hk, const T& kphase, const int hk_type = 0);
-
-    /**
-     * @brief Add data from hk to this->value[R_index].
-     * Thread-safe version: explicitly pass R_index.
-     *
-     * @param R_index Index of the R vector in this->values
-     * @param hk Pointer to the source matrix.
-     * @param ld_hk Leading dimension of the source matrix.
-     * @param kphase Complex scalar to be multiplied with the source matrix.
-     * @param hk_type The type of matrix layout (default: 0).
-     */
-    void add_from_matrix(const int R_index,
-                         const std::complex<T>* hk,
-                         const int ld_hk,
-                         const std::complex<T>& kphase,
-                         const int hk_type = 0);
-
-    /**
-     * @brief Add data from hk to this->value[R_index].
-     * Thread-safe version: explicitly pass R_index.
-     * for non-collinear spin case only
-     *
-     * @param R_index Index of the R vector in this->values
-     * @param hk Pointer to the source matrix.
-     * @param ld_hk Leading dimension of the source matrix.
-     * @param kphase Scalar to be multiplied with the source matrix.
-     * @param hk_type The type of matrix layout (default: 0).
-     */
-    void add_from_matrix(const int R_index,
-                         const T* hk,
-                         const int ld_hk,
-                         const T& kphase,
-                         const int hk_type = 0);
-
-    /**
-     * @brief Add this->value[R_index] * kphase to an array.
-     * Thread-safe version: explicitly pass R_index.
-     * T = double or float
-     *
-     * @param R_index Index of the R vector in this->values
-     * @param target_array Pointer to the target array.
-     * @param kphase Scalar to be multiplied with the block matrix.
-     */
-    void add_to_array(const int R_index, std::complex<T>* target_array, const std::complex<T>& kphase) const;
-    /**
-     * @brief Add this->value[R_index] * kphase to an array.
-     * Thread-safe version: explicitly pass R_index.
-     * for non-collinear spin case only (T = std::complex<double> or complex<float>)
-     *
-     * @param R_index Index of the R vector in this->values
-     * @param target_array Pointer to the target array.
-     * @param kphase Scalar to be multiplied with the block matrix.
-     */
-    void add_to_array(const int R_index, T* target_array, const T& kphase) const;
 
     // comparation function, used for sorting
     bool operator<(const AtomPair& other) const;

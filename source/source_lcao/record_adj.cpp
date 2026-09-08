@@ -44,20 +44,15 @@ void Record_adj::delete_grid()
 void Record_adj::for_2d(const UnitCell& ucell,
                         const Grid_Driver& grid_d,
                         Parallel_Orbitals& pv,
-                        bool gamma_only,
                         const std::vector<double>& orb_cutoff)
 {
     ModuleBase::TITLE("Record_adj", "for_2d");
     ModuleBase::timer::start("Record_adj", "for_2d");
 
     assert(ucell.nat > 0);
-    if (!gamma_only)
-    {
-        // Record_adj should not modify members of pv, need refactor! mohan add 2025-03-10
-        pv.nlocdim.assign(ucell.nat, 0);
-        pv.nlocstart.assign(ucell.nat, 0);
-        pv.nnr = 0;
-    }
+    pv.nlocdim.assign(ucell.nat, 0);
+    pv.nlocstart.assign(ucell.nat, 0);
+    pv.nnr = 0;
     {
         // (1) find the adjacent atoms of atom[T1,I1];
         ModuleBase::Vector3<double> tau1, tau2, dtau;
@@ -79,10 +74,7 @@ void Record_adj::for_2d(const UnitCell& ucell,
                 // grid_d.Find_atom( tau1 );
                 grid_d.Find_atom(ucell, tau1, T1, I1);
                 const int start1 = ucell.itiaiw2iwt(T1, I1, 0);
-                if (!gamma_only)
-                {
-                    pv.nlocstart[iat] = pv.nnr;
-                }
+                pv.nlocstart[iat] = pv.nnr;
 
                 // (2) search among all adjacent atoms.
                 for (int ad = 0; ad < grid_d.getAdjacentNum() + 1; ++ad)
@@ -133,30 +125,27 @@ void Record_adj::for_2d(const UnitCell& ucell,
                     if (is_adj)
                     {
                         ++na_each[iat];
-                        if (!gamma_only)
+                        for (int ii = 0; ii < atom1->nw * PARAM.globalv.npol; ++ii)
                         {
-                            for (int ii = 0; ii < atom1->nw * PARAM.globalv.npol; ++ii)
+                            // the index of orbitals in this processor
+                            const int iw1_all = start1 + ii;
+                            const int mu = pv.global2local_row(iw1_all);
+                            if (mu < 0)
                             {
-                                // the index of orbitals in this processor
-                                const int iw1_all = start1 + ii;
-                                const int mu = pv.global2local_row(iw1_all);
-                                if (mu < 0)
+                                continue;
+                            }
+
+                            for (int jj = 0; jj < ucell.atoms[T2].nw * PARAM.globalv.npol; ++jj)
+                            {
+                                const int iw2_all = start2 + jj;
+                                const int nu = pv.global2local_col(iw2_all);
+                                if (nu < 0)
                                 {
                                     continue;
                                 }
 
-                                for (int jj = 0; jj < ucell.atoms[T2].nw * PARAM.globalv.npol; ++jj)
-                                {
-                                    const int iw2_all = start2 + jj;
-                                    const int nu = pv.global2local_col(iw2_all);
-                                    if (nu < 0)
-                                    {
-                                        continue;
-                                    }
-
-                                    pv.nlocdim[iat]++;
-                                    ++(pv.nnr);
-                                }
+                                pv.nlocdim[iat]++;
+                                ++(pv.nnr);
                             }
                         }
                     } // end is_adj
@@ -166,10 +155,7 @@ void Record_adj::for_2d(const UnitCell& ucell,
         } // end T1
     }
     // xiaohui add "OUT_LEVEL", 2015-09-16
-    if (PARAM.inp.out_level != "m" && !gamma_only)
-    {
-        ModuleBase::GlobalFunc::OUT(GlobalV::ofs_running, "ParaV.nnr", pv.nnr);
-    }
+    ModuleBase::GlobalFunc::OUT(GlobalV::ofs_running, "ParaV.nnr", pv.nnr);
 
     //------------------------------------------------
     // info will identify each atom in each unitcell.
@@ -277,5 +263,3 @@ void Record_adj::for_2d(const UnitCell& ucell,
     info_modified = true;
     return;
 }
-
-

@@ -17,15 +17,8 @@ class TwoCenterBundle
     // NOTE: some variables might be set only on RANK-0
     void build_orb(int ntype, const std::string* file_orb0, const std::string& orbital_dir);
     void build_beta(int ntype, Numerical_Nonlocal* nl);
-    void build_alpha(int ndesc = 0, std::string* file_desc0 = nullptr);
-    void build_orb_onsite(const double& radius);
 
     void tabulate();
-
-    // Unlike the tabulate() above, this overload function computes
-    // two-center integration table by direct integration with Simpson's
-    // rule, which was the algorithm used prior to v3.3.4.
-    void tabulate(const double lcao_ecut, const double lcao_dk, const double lcao_dr, const double lcao_rmax);
 
     /**
      * @brief Overwrites the content of a LCAO_Orbitals object (e.g. ORB)
@@ -36,21 +29,13 @@ class TwoCenterBundle
     void to_LCAO_Orbitals(LCAO_Orbitals& orb,
                           const double lcao_ecut,
                           const double lcao_dk,
-                          const double lcao_dr,
-                          const double lcao_rmax,
-                          const bool out_element_info,
-                          const bool cal_force) const;
+                          const bool out_element_info) const;
 
     std::unique_ptr<TwoCenterIntegrator> kinetic_orb;
-    std::unique_ptr<TwoCenterIntegrator> overlap_orb;
     std::unique_ptr<TwoCenterIntegrator> overlap_orb_beta;
-    std::unique_ptr<TwoCenterIntegrator> overlap_orb_alpha;
-    std::unique_ptr<TwoCenterIntegrator> overlap_orb_onsite;
 
     std::unique_ptr<RadialCollection> orb_;
     std::unique_ptr<RadialCollection> beta_;
-    std::unique_ptr<RadialCollection> alpha_;
-    std::unique_ptr<RadialCollection> orb_onsite_;
 };
 
 #endif

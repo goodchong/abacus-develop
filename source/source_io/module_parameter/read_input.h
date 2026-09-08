@@ -78,13 +78,6 @@ class ReadInput
      */
     void write_txt_input(const Parameter& param, const std::string& filename);
     /**
-     * @brief determine the md step in restart case
-     *
-     * @param file_dir directory of Restart_md.txt
-     * @return md step
-     */
-    int current_md_step(const std::string& file_dir);
-    /**
      * @brief count_nype from STRU file
      *
      */
@@ -101,40 +94,8 @@ class ReadInput
     void set_global_dir(const Input_para& inp, System_para& sys);
     // set System_para according to input parameters
     void set_globalv(const Input_para& inp, System_para& sys);
-    // system items
-    void item_system();
-    // items for electronic structure
-    void item_elec_stru();
-    // items for lcao
-    void item_lcao();
-    // items for relax
-    void item_relax();
-    // items for md
-    void item_md();
-    // items for ofdft
-    void item_ofdft();
-    // items for sdft
-    void item_sdft();
-    // items for deepks
-    void item_deepks();
-    // items for real time tddft
-    void item_rt_tddft();
-    // items for linear response tddft
-    void item_tdofdft();
-    // items for td-ofdft
-    void item_lr_tddft();
-    // items for output
-    void item_output();
-    // items for postprocess
-    void item_postprocess();
-    // items for some models
-    void item_model();
-    // items for exx
-    void item_exx();
-    // items for dft+u
-    void item_dftu();
-    // items for other
-    void item_others();
+    // Complete public INPUT surface of the H0-only executable.
+    void item_h0();
 
   private:
     int rank = 0; ///< rank of MPI
@@ -161,10 +122,6 @@ std::string longstring(const std::vector<std::string>& str_values);
 bool assume_as_boolean(const std::string& val);
 // convert to directory format
 std::string to_dir(const std::string& str);
-// return a warning string if the string is not found in the vector
-std::string nofound_str(std::vector<std::string> init_chgs, const std::string& str);
-
-
 // filter non-ASCII characters from ifstream and output to stringstream
 // return true if successful, false otherwise
 bool filter_nonascii_and_comment(std::ifstream& ifs,

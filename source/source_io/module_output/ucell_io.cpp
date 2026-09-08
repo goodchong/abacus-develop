@@ -1,8 +1,6 @@
 #include "source_io/module_output/ucell_io.h"
 #include "source_base/constants.h"
 
-#include <sstream>
-
 namespace ModuleIO {
 
 void UcellIO::write_ucell(std::ofstream& ofs, const UnitCell* ucell)
@@ -32,28 +30,6 @@ void UcellIO::write_ucell(std::ofstream& ofs, const UnitCell* ucell)
         {
             ofs << " " << atom->taud[ia].x << " " << atom->taud[ia].y << " " << atom->taud[ia].z << std::endl;
         }
-    }
-}
-
-void UcellIO::read_ucell(std::ifstream& ifs)
-{
-    std::string tmp;
-    for (int i = 0; i < 6; i++)
-    {
-        std::getline(ifs, tmp); // latName + lat0 + latvec + atom label
-    }
-    std::getline(ifs, tmp); // atom number of each type
-
-    std::istringstream iss(tmp);
-    int natom = 0;
-    int total_natom = 0;
-    while (iss >> natom)
-    {
-        total_natom += natom;
-    }
-    for (int i = 0; i < total_natom + 1; i++)
-    {
-        std::getline(ifs, tmp); // Direct + atom coordinates
     }
 }
 

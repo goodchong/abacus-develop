@@ -80,11 +80,6 @@ void pseudopot_cell_vl::init_vloc(const UnitCell& ucell,
 void pseudopot_cell_vl::allocate(const UnitCell& ucell,
 							     const int ngg)
 {
-	if(PARAM.inp.test_pp>0) 
-	{ 
-		ModuleBase::TITLE("pseudopot_cell_vl","allocate");
-	}
-
 	this->vloc.create(ucell.ntype, ngg);
 
 	delete[] numeric;
@@ -252,27 +247,6 @@ void pseudopot_cell_vl::vloc_of_g(const int& msh,
 void pseudopot_cell_vl::print_vloc(const UnitCell& ucell,
 								   const ModulePW::PW_Basis* rho_basis) const
 {
-	if(GlobalV::MY_RANK!=0) 
-	{ 
-		return; //mohan fix bug 2011-10-13
-	}
-
-	bool check_vl = PARAM.inp.out_element_info;
-
-	if(check_vl)
-	{
-		for(int it=0; it<ucell.ntype; it++)
-		{
-			std::stringstream ss ;
-			ss << PARAM.globalv.global_out_dir << ucell.atoms[it].label << "/v_loc_g.dat" ;
-			std::ofstream ofs_vg( ss.str().c_str() );
-			for(int ig=0;ig<rho_basis->ngg;ig++)
-			{
-				ofs_vg << std::setw(15) << rho_basis->gg_uniq [ig] * ucell.tpiba2 
-				   	<< std::setw(15) << this->vloc(it, ig) << std::endl;
-			}
-			ofs_vg.close();
-		}
-	}
-	return;
+	(void)ucell;
+	(void)rho_basis;
 }

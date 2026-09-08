@@ -29,24 +29,12 @@ class InfoNonlocal
 			const bool& out_element_info,
 			const bool& lspinorb,
 			const int& nspin);
-		/// read in the NONLOCAL projector from file.
-		void Read_NonLocal(
-			const int &it, 
-			Atom* atom, 
-			int &n_projectors, 
-			const int &my_rank,
-			const int& kmesh,
-			const double& dk,
-			const double& dr_uniform,
-			const std::string& nonlocalFile);
 		//workflow to setup nonlocal part for LCAO
 		void setupNonlocal(
 			const int& ntype,
 			Atom* atoms,
 			std::ofstream &log,
 			LCAO_Orbitals &orb,
-			const std::string& basis_type,
-			const bool& out_element_info,
 			const bool& lspinorb,
 			const int& nspin
 		);

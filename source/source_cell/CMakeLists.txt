@@ -1,6 +1,4 @@
-add_subdirectory(module_symmetry)
 add_subdirectory(module_neighbor)
-add_subdirectory(module_neighlist)
 
 add_library(
     cell
@@ -18,31 +16,12 @@ add_library(
     read_atoms.cpp
     read_atoms_helper.cpp
     read_orb.cpp
-    klist.cpp
-    parallel_kpoints.cpp
     cell_index.cpp
     check_atomic_stru.cpp
-    update_cell.cpp
+    print_cell.cpp
     magnetism.cpp
     bcast_cell.cpp
     read_stru.cpp
-    print_cell.cpp
     read_atom_species.cpp
-    k_vector_utils.cpp
-    sep.cpp
-    sep_cell.cpp
-    qlist.cpp
-    qlist.h
-    cal_nelec_nband.cpp
+    electron_count.cpp
 )
-
-if(ENABLE_COVERAGE)
-  add_coverage(cell)
-endif()
-
-if(BUILD_TESTING)
-  if(ENABLE_MPI)
-    add_subdirectory(test)
-    add_subdirectory(test_pw)
-  endif()
-endif()

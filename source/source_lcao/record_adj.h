@@ -24,7 +24,6 @@ class Record_adj
     void for_2d(const UnitCell& ucell,
                 const Grid_Driver& grid_d,
                 Parallel_Orbitals& pv,
-                bool gamma_only,
                 const std::vector<double>& orb_cutoff);
 
 

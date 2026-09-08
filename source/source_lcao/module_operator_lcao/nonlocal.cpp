@@ -11,16 +11,13 @@
 
 template <typename TK, typename TR>
 hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::Nonlocal(
-    HS_Matrix_K<TK>* hsk_in,
-    const std::vector<ModuleBase::Vector3<double>>& kvec_d_in,
     hamilt::HContainer<TR>* hR_in,
     const UnitCell* ucell_in,
     const std::vector<double>& orb_cutoff,
     const Grid_Driver* GridD_in,
     const TwoCenterIntegrator* intor)
-    : hamilt::OperatorLCAO<TK, TR>(hsk_in, kvec_d_in, hR_in), orb_cutoff_(orb_cutoff), intor_(intor)
+    : hamilt::OperatorLCAO<TK, TR>(hR_in), orb_cutoff_(orb_cutoff), intor_(intor)
 {
-    this->cal_type = calculation_type::lcao_fixed;
     this->ucell = ucell_in;
     this->gridD = GridD_in;
 #ifdef __DEBUG
@@ -282,14 +279,6 @@ void hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::cal_HR_IJR(
     }
 }
 
-// set_HR_fixed()
-template <typename TK, typename TR>
-void hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::set_HR_fixed(void* HR_fixed_in)
-{
-    this->HR_fixed = static_cast<hamilt::HContainer<TR>*>(HR_fixed_in);
-    this->allocated = false;
-}
-
 // contributeHR()
 template <typename TK, typename TR>
 void hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
@@ -305,17 +294,11 @@ void hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
             this->HR_fixed->set_zero();
             this->allocated = true;
         }
-        if (this->next_sub_op != nullptr)
-        {
-            // pass pointer of HR_fixed to the next node
-            static_cast<OperatorLCAO<TK, TR>*>(this->next_sub_op)->set_HR_fixed(this->HR_fixed);
-        }
         // calculate the values in HR_fixed
         this->calculate_HR();
         this->HR_fixed_done = true;
     }
-    // last node of sub-chain, add HR_fixed into HR
-    if (this->next_sub_op == nullptr)
+    if (this->HR_fixed != nullptr && this->HR_fixed->size_atom_pairs() > 0)
     {
         this->hR->add(*(this->HR_fixed));
     }
@@ -323,9 +306,17 @@ void hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
     return;
 }
 
-#include "nonlocal_force_stress.hpp"
-#include "nonlocal_dh.hpp"
+#define INSTANTIATE_H0_NONLOCAL(TK, TR)                                                                  \
+    template hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::Nonlocal(                                   \
+        hamilt::HContainer<TR>*,                                                                         \
+        const UnitCell*,                                                                                 \
+        const std::vector<double>&,                                                                      \
+        const Grid_Driver*,                                                                              \
+        const TwoCenterIntegrator*);                                                                     \
+    template hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::~Nonlocal();                                \
+    template void hamilt::Nonlocal<hamilt::OperatorLCAO<TK, TR>>::contributeHR()
 
-template class hamilt::Nonlocal<hamilt::OperatorLCAO<double, double>>;
-template class hamilt::Nonlocal<hamilt::OperatorLCAO<std::complex<double>, double>>;
-template class hamilt::Nonlocal<hamilt::OperatorLCAO<std::complex<double>, std::complex<double>>>;
+INSTANTIATE_H0_NONLOCAL(std::complex<double>, double);
+INSTANTIATE_H0_NONLOCAL(std::complex<double>, std::complex<double>);
+
+#undef INSTANTIATE_H0_NONLOCAL

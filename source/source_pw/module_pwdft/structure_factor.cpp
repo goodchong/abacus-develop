@@ -1,5 +1,4 @@
 #include "source_base/global_function.h"
-#include "source_io/module_parameter/parameter.h"
 #include "structure_factor.h"
 #include "source_base/constants.h"
 #include "source_base/math_bspline.h"
@@ -12,35 +11,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-
-Structure_Factor::Structure_Factor()
-{
-    // LCAO basis doesn't support GPU acceleration on this function currently.
-    if(PARAM.inp.basis_type == "pw")
-    {
-        this->device = PARAM.inp.device;
-    }
-}
-
-Structure_Factor::~Structure_Factor()
-{
-    if (device == "gpu")
-    {
-        delmem_cd_op()(this->c_eigts1);
-        delmem_cd_op()(this->c_eigts2);
-        delmem_cd_op()(this->c_eigts3);
-        delmem_zd_op()(this->z_eigts1);
-        delmem_zd_op()(this->z_eigts2);
-        delmem_zd_op()(this->z_eigts3);
-    }
-    else
-    {
-        delmem_ch_op()(this->c_eigts1);
-        delmem_ch_op()(this->c_eigts2);
-        delmem_ch_op()(this->c_eigts3);
-        // There's no need to delete double precision pointers while in a CPU environment.
-    }
-}
 
 // called in input.cpp
 void Structure_Factor::set(const ModulePW::PW_Basis* rho_basis_in, const int& nbspline_in)
@@ -59,13 +29,9 @@ void Structure_Factor::setup(const UnitCell* Ucell, const Parallel_Grid& pgrid, 
     ModuleBase::timer::start("Structure_Factor","setup");
 
     const std::complex<double> ci_tpi = ModuleBase::NEG_IMAG_UNIT * ModuleBase::TWO_PI;
-    this->ucell = Ucell;
     this->strucFac.create(Ucell->ntype, rho_basis->npw);
     ModuleBase::Memory::record("SF::strucFac", sizeof(std::complex<double>) * Ucell->ntype*rho_basis->npw);
 
-//	std::string outstr;
-//	outstr = PARAM.globalv.global_out_dir + "strucFac.dat"; 
-//	std::ofstream ofs( outstr.c_str() ) ;
 	bool usebspline;
 	if(nbspline > 0) 
 	{   
@@ -108,88 +74,7 @@ void Structure_Factor::setup(const UnitCell* Ucell, const Parallel_Grid& pgrid, 
         }
     }
 
-//	ofs.close();
 
-    int i=0;
-    int j=0;
- 
-    this->eigts1.create(Ucell->nat, 2*rho_basis->nx + 1);
-    this->eigts2.create(Ucell->nat, 2*rho_basis->ny + 1);
-    this->eigts3.create(Ucell->nat, 2*rho_basis->nz + 1);
-
-    ModuleBase::Memory::record("SF::eigts123",sizeof(std::complex<double>) 
-    * (Ucell->nat*2 * (rho_basis->nx + rho_basis->ny + rho_basis->nz) + 3));
-
-    ModuleBase::Vector3<double> gtau;
-    int inat = 0;
-    for (i = 0; i < Ucell->ntype; i++)
-    {
-        for (j = 0; j < Ucell->atoms[i].na;j++)
-        {
-            gtau = Ucell->G * Ucell->atoms[i].tau[j];  //HLX: fixed on 10/13/2006
-#ifdef _OPENMP
-#pragma omp parallel
-{
-		    #pragma omp for schedule(static, 16)
-#endif
-            for (int n1 = -rho_basis->nx; n1 <= rho_basis->nx;n1++)
-            {
-                double arg = n1 * gtau.x;
-                this->eigts1(inat, n1 + rho_basis->nx) = ModuleBase::libm::exp( ci_tpi*arg  );
-            }
-#ifdef _OPENMP
-		    #pragma omp for schedule(static, 16)
-#endif
-            for (int n2 = -rho_basis->ny; n2 <= rho_basis->ny;n2++)
-            {
-                double arg = n2 * gtau.y;
-                this->eigts2(inat, n2 + rho_basis->ny) = ModuleBase::libm::exp( ci_tpi*arg );
-            }
-#ifdef _OPENMP
-		    #pragma omp for schedule(static, 16)
-#endif
-            for (int n3 = -rho_basis->nz; n3 <= rho_basis->nz;n3++)
-            {
-                double arg = n3 * gtau.z;
-                this->eigts3(inat, n3 + rho_basis->nz) = ModuleBase::libm::exp( ci_tpi*arg );
-            }
-#ifdef _OPENMP
-}
-#endif
-            inat++;
-        }
-    }
-    
-    if (device == "gpu") {
-        if (PARAM.globalv.has_float_data) {
-            resmem_cd_op()(this->c_eigts1, Ucell->nat * (2 * rho_basis->nx + 1));
-            resmem_cd_op()(this->c_eigts2, Ucell->nat * (2 * rho_basis->ny + 1));
-            resmem_cd_op()(this->c_eigts3, Ucell->nat * (2 * rho_basis->nz + 1));
-            castmem_z2c_h2d_op()(this->c_eigts1, this->eigts1.c, Ucell->nat * (2 * rho_basis->nx + 1));
-            castmem_z2c_h2d_op()(this->c_eigts2, this->eigts2.c, Ucell->nat * (2 * rho_basis->ny + 1));
-            castmem_z2c_h2d_op()(this->c_eigts3, this->eigts3.c, Ucell->nat * (2 * rho_basis->nz + 1));
-        }
-        resmem_zd_op()(this->z_eigts1, Ucell->nat * (2 * rho_basis->nx + 1));
-        resmem_zd_op()(this->z_eigts2, Ucell->nat * (2 * rho_basis->ny + 1));
-        resmem_zd_op()(this->z_eigts3, Ucell->nat * (2 * rho_basis->nz + 1));
-        syncmem_z2z_h2d_op()(this->z_eigts1, this->eigts1.c, Ucell->nat * (2 * rho_basis->nx + 1));
-        syncmem_z2z_h2d_op()(this->z_eigts2, this->eigts2.c, Ucell->nat * (2 * rho_basis->ny + 1));
-        syncmem_z2z_h2d_op()(this->z_eigts3, this->eigts3.c, Ucell->nat * (2 * rho_basis->nz + 1));
-    }
-    else {
-        if (PARAM.globalv.has_float_data) {
-            resmem_ch_op()(this->c_eigts1, Ucell->nat * (2 * rho_basis->nx + 1));
-            resmem_ch_op()(this->c_eigts2, Ucell->nat * (2 * rho_basis->ny + 1));
-            resmem_ch_op()(this->c_eigts3, Ucell->nat * (2 * rho_basis->nz + 1));
-            castmem_z2c_h2h_op()(this->c_eigts1, this->eigts1.c, Ucell->nat * (2 * rho_basis->nx + 1));
-            castmem_z2c_h2h_op()(this->c_eigts2, this->eigts2.c, Ucell->nat * (2 * rho_basis->ny + 1));
-            castmem_z2c_h2h_op()(this->c_eigts3, this->eigts3.c, Ucell->nat * (2 * rho_basis->nz + 1));
-        }
-        this->z_eigts1 = this->eigts1.c;
-        this->z_eigts2 = this->eigts2.c;
-        this->z_eigts3 = this->eigts3.c;
-        // There's no need to delete double precision pointers while in a CPU environment.
-    }
     ModuleBase::timer::end("Structure_Factor","setup");
     return;
 }
@@ -341,37 +226,4 @@ void Structure_Factor::bsplinecoef(std::complex<double> *b1, std::complex<double
 #ifdef _OPENMP
 }
 #endif
-}
-
-template <>
-std::complex<float> * Structure_Factor::get_eigts1_data() const
-{
-    return this->c_eigts1;
-}
-template <>
-std::complex<double> * Structure_Factor::get_eigts1_data() const
-{
-    return this->z_eigts1;
-}
-
-template <>
-std::complex<float> * Structure_Factor::get_eigts2_data() const
-{
-    return this->c_eigts2;
-}
-template <>
-std::complex<double> * Structure_Factor::get_eigts2_data() const
-{
-    return this->z_eigts2;
-}
-
-template <>
-std::complex<float> * Structure_Factor::get_eigts3_data() const
-{
-    return this->c_eigts3;
-}
-template <>
-std::complex<double> * Structure_Factor::get_eigts3_data() const
-{
-    return this->z_eigts3;
 }

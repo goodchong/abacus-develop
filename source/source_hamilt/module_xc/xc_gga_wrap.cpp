@@ -3,16 +3,10 @@
 // 1. gcxc, which is the wrapper for gradient correction part
 // 2. gcx_spin, spin polarized, exchange only
 // 3. gcc_spin, spin polarized, correlation only
-// 4. gcxc_libxc, the entire GGA functional, LIBXC, for nspin=1 case
-// 5. gcxc_spin_libxc, the entire GGA functional, LIBXC, for nspin=2 case
 
 #include "xc_functional.h"
 #include <stdexcept>
 #include "source_base/global_function.h"
-
-#ifdef USE_LIBXC
-#include "libxc_abacus.h"
-#endif
 
 void XC_Functional::gcxc(
     const double &rho,
@@ -147,25 +141,6 @@ void XC_Functional::gcxc(
                 XC_Functional::glyp(rho, grho, s, v1, v2);
                 break;
             }
-            case XC_HYB_GGA_XC_PBEH:
-            {
-                //PBE0
-                double sx = 0.0;
-                double v1x = 0.0;
-                double v2x = 0.0;
-                double sc = 0.0;
-                double v1c = 0.0;
-                double v2c = 0.0;
-                XC_Functional::pbex(rho, grho, 0, sx, v1x, v2x);
-                sx *= (1.0 - XC_Functional::hybrid_alpha);
-                v1x *= (1.0 - XC_Functional::hybrid_alpha);
-                v2x *= (1.0 - XC_Functional::hybrid_alpha);
-                XC_Functional::pbec(rho, grho, 0, sc, v1c, v2c);
-                s = sx + sc;
-                v1 = v1x + v1c;
-                v2 = v2x + v2c;
-                break;
-            }
             default:
             {
                 //SCAN_X,SCAN_C,HSE, and so on
@@ -279,25 +254,6 @@ void XC_Functional::gcx_spin(
                 }
                 break;
             }
-            case XC_HYB_GGA_XC_PBEH:
-            {
-                //PBE0
-                if (rhoup > small && sqrt(fabs(grhoup2)) > small)
-                {
-                    XC_Functional::pbex(2.0 * rhoup, 4.0 * grhoup2, 0, sxup, v1xup, v2xup);
-                    sxup *= (1.0 - XC_Functional::hybrid_alpha);
-                    v1xup *= (1.0 - XC_Functional::hybrid_alpha);
-                    v2xup *= (1.0 - XC_Functional::hybrid_alpha);
-                }
-                if (rhodw > small && sqrt(fabs(grhodw2)) > small)
-                {
-                    XC_Functional::pbex(2.0 * rhodw, 4.0 * grhodw2, 0, sxdw, v1xdw, v2xdw);
-                    sxdw *= (1.0 - XC_Functional::hybrid_alpha);
-                    v1xdw *= (1.0 - XC_Functional::hybrid_alpha);
-                    v2xdw *= (1.0 - XC_Functional::hybrid_alpha);
-                }
-                break;
-            }
             case XC_GGA_X_PBE_SOL:
             {
                 //PBXsol
@@ -387,12 +343,6 @@ void XC_Functional::gcc_spin(
         }
     } //endif
 
-    if(func_id[0]==XC_HYB_GGA_XC_PBEH)
-    {
-        XC_Functional::pbec_spin(rho, zeta, grho, 1, sc, v1cup, v1cdw, v2c);
-        return;
-    }
-
     //for(int id : func_id)
     //{
         int id = func_id[1];
@@ -407,7 +357,7 @@ void XC_Functional::gcc_spin(
             case XC_GGA_C_PW91:
             {
                 //PW91_C
-                ModuleBase::WARNING_QUIT("xc_wrapper_gcxc","there seems to be something wrong with ggac_spin, better use libxc version instead");
+                ModuleBase::WARNING_QUIT("xc_wrapper_gcxc", "invalid spin-GGA evaluation state");
                 break;
             }
             case XC_GGA_C_PBE:

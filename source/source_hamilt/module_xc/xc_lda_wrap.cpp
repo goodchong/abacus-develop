@@ -3,11 +3,6 @@
 // 1. xc, which is the wrapper of LDA part
 // (i.e. LDA functional and LDA part of GGA functional)
 // 2. xc_spin, which is the spin polarized counterpart of xc
-// 3. xc_spin_libxc, which is the wrapper for LDA functional, spin polarized
-
-#ifdef USE_LIBXC
-#include <xc_funcs.h>
-#endif	// ifdef USE_LIBXC
 
 #include "xc_functional.h"
 #include <stdexcept>
@@ -44,23 +39,6 @@ void XC_Functional::xc(
             {
                 //  SLA,PBX,rPBX,PBXsol,WC,B88,PW91_X
                 XC_Functional::slater(rs, e, v);
-                break;
-            }
-
-            // Exchange functionals containing attenuated slater exchange
-            case XC_HYB_GGA_XC_PBEH:
-            {
-                //  PBE0
-                double ex = 0.0;
-                double vx = 0.0;
-                double ec = 0.0;
-                double vc = 0.0;
-                XC_Functional::slater(rs, ex, vx);
-                ex *= (1 - XC_Functional::hybrid_alpha);
-                vx *= (1 - XC_Functional::hybrid_alpha);
-                XC_Functional::pw(rs, 0, ec, vc);
-                e = ex + ec;
-                v = vx + vc;
                 break;
             }
 
@@ -142,27 +120,6 @@ void XC_Functional::xc_spin(
                 break;
             }
 
-            // Exchange functionals containing attenuated slater exchange
-            case XC_HYB_GGA_XC_PBEH:
-            {
-                //  PBE0
-                double ex = 0.0;
-                double vupx = 0.0;
-                double vdwx = 0.0;
-                double ec = 0.0;
-                double vupc = 0.0;
-                double vdwc = 0.0;
-                XC_Functional::slater_spin(rho, zeta, ex, vupx, vdwx);
-                ex *= (1.0 - XC_Functional::hybrid_alpha);
-                vupx *= (1.0 - XC_Functional::hybrid_alpha);
-                vdwx *= (1.0 - XC_Functional::hybrid_alpha);
-                XC_Functional::pw_spin(rs, zeta, ec, vupc, vdwc);
-                e = ex + ec;
-                vup = vupx + vupc;
-                vdw = vdwx + vdwc;
-                break;
-            }
-
             // Correlation functionals containing PZ correlation
             case XC_LDA_C_PZ:
             case XC_GGA_C_P86:
@@ -182,7 +139,6 @@ void XC_Functional::xc_spin(
                 break;
             }
 
-            // Cases that are only realized in LIBXC
             default:
             {
                 throw std::domain_error("functional unfinished in " + std::string(__FILE__) + " line " + std::to_string(__LINE__));

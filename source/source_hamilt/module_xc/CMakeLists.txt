@@ -11,24 +11,4 @@ add_library(
     xc_gga_exch.cpp
     xc_gga_corr.cpp
     xc_hcth.cpp
-    libxc_setup.cpp
-    libxc_tools.cpp
-    libxc_pot.cpp
-    libxc_lda_wrap.cpp
-    libxc_gga_wrap.cpp
-    libxc_mgga_wrap.cpp
-    exx_info.cpp
 )
-
-if(ENABLE_COVERAGE)
-  add_coverage(xc_)
-endif()
-
-if(BUILD_TESTING)
-if(ENABLE_MPI)
-if(ENABLE_LIBXC)
-  add_subdirectory(test)
-  add_subdirectory(kernels/test)
-endif()
-endif()
-endif()
